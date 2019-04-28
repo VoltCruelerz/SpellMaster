@@ -21,10 +21,18 @@ on('ready', () => {
     log("Spellbook Indexed with " + SpellList.length + " spells.");
 
     // Retrieves a handout by name
-    const GetHandout = (name) => {
-        const list = findObjs({
+    const GetHandout = (nameOrId) => {
+        let list = findObjs({
             _type: 'handout',
-            name: name,
+            name: nameOrId,
+        });
+        if (list.length === 1) {
+            return list[0];
+        }
+
+        list = findObjs({
+            _type: 'handout',
+            id: nameOrId
         });
         if (list.length === 1) {
             return list[0];
@@ -69,7 +77,7 @@ on('ready', () => {
         if(id === -1){
             return null;
         }
-        return Dequote(argParams[id]);
+        return Decaret(argParams[id]);
     };
 
     // Retrieves the index in the array of params for the specified parameter
@@ -84,13 +92,13 @@ on('ready', () => {
         return -1;
     };
 
-    // Pulls the interior message out of double quotes
-    const Dequote = (quotedString) => {
-        const startQuote = quotedString.indexOf('"');
-        const endQuote = quotedString.lastIndexOf('"');
+    // Pulls the interior message out of carets
+    const Decaret = (quotedString) => {
+        const startQuote = quotedString.indexOf('^');
+        const endQuote = quotedString.lastIndexOf('^');
         if (startQuote >= endQuote) {
             if (!quietMode) {
-                sendChat(scname, `**ERROR:** You must have a string within double quotes in the phrase ${string}`);
+                sendChat(scname, `**ERROR:** You must have a string within carets in the phrase ${string}`);
             }
             return null;
         }
@@ -248,11 +256,6 @@ on('ready', () => {
         return `<a href="${linkTo}">${text}</a>`;
     };
 
-    // Returns the text formatted as Consolas
-    const MakeConsolas = (text) => {
-        return `<font face="consolas">${text}</font>`;
-    }
-
     // Prints a spellbook out to its handout
     const PrintSpellbook = (spellbook) => {
         let text = "";
@@ -270,6 +273,7 @@ on('ready', () => {
 
         // Spells
         text += '<h2>Spells</h2>';
+        const activePrepList = spellbook.PreparationLists[spellbook.ActivePrepList];
         for (let i = 0; i < 10; i++) {
             text += i > 0
                 ? `<h3>Level ${i} Spells - |${spellbook.CurSlots[i-1]}| / |${spellbook.MaxSlots[i-1]}| </h3>`
@@ -277,8 +281,11 @@ on('ready', () => {
             spellbook.KnownSpells.forEach((spellInstance) => {
                 const spell = SpellDict[spellInstance.Name];
                 if (spell.Level === i) {
+                    const prepButton = activePrepList.PreparedSpells.indexOf(spellInstance) === -1
+                        ? CreateLink('[_]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^True^`)
+                        : CreateLink('[X]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^False^`);
                     const expandedText = spellInstance.IsExpanded ? '|-|' : '|+|';
-                    text += `<h4>|_| ${spell.Name} ${expandedText}</h4>`;
+                    text += `<h4>${prepButton} ${spell.Name} ${expandedText}</h4>`;
                 }
             });
             text += `<h4>|+|</h4>`;
@@ -286,33 +293,17 @@ on('ready', () => {
         }
 
         // Preparation Tabs
-        let topLine = MakeConsolas('');
-        let midLine = MakeConsolas('');
-        let botLine = MakeConsolas('');
-        for (let i = 0; i < spellbook.PreparationLists; i++) {
+        text += '<h2>Preparation Lists</h2>';
+        for (let i = 0; i < spellbook.PreparationLists.length; i++) {
             const curList = spellbook.PreparationLists[i];
             const isActive = spellbook.ActivePrepList === i;
-            let tab = `\\ ${curList.Name} |-| /`;
-            let topFill = isActive
-                ? " ".repeat(tab.length)
-                : "_".repeat(tab.length);
-            let botFill = "‾".repeat(tab.length);
-
-            topLine += MakeConsolas(`_${topFill}_`);
-            midLine += MakeConsolas(` ${tab} `);
-            botLine += MakeConsolas(`  ${botFill}  `);
+            text += `<h4>|_| ${curList.Name} |-|`;
         }
-
-        topLine += MakeConsolas(`_______`);
-        midLine += MakeConsolas(` \\ + / `);
-        botLine += MakeConsolas(`  ‾‾‾  `);
-        text += topLine;
-        text += midLine;
-        text += botLine;
+        text += `<h4>|+|</h4>`;
 
         // Print
         log(text);
-        spellbook.Handout.set('notes', text);
+        GetHandout(spellbook.Handout).set('notes', text);
     };
 
     // Parse chat messages
@@ -324,7 +315,7 @@ on('ready', () => {
         const argParams = msg.content.split('--');
 
         // Create new spell book handout
-        // !SpellMaster --CreateBook "Tazeka's Spells" --Owner "Tazeka Liranov" --Stat "Wisdom" --ImportClass "Druid" --Level "11"
+        // !SpellMaster --CreateBook ^Tazeka's Spells^ --Owner ^Tazeka Liranov^ --Stat ^Wisdom^ --ImportClass ^Druid^ --Level ^11^
         const createBookTag = '--CreateBook';
         if(argWords.includes(createBookTag)){
             const bookName = GetParamValue(argParams, 'CreateBook');
@@ -355,7 +346,8 @@ on('ready', () => {
                     if (curSpell.Classes.includes(casterClass)) {
                         knownSpells.push({
                             Name: curSpell.Name,
-                            IsExpanded: false
+                            IsExpanded: false,
+                            Stat: stat
                         });
                     }
                 }
@@ -367,7 +359,7 @@ on('ready', () => {
             // Create state entry
             state.SpellMaster[bookName] = {
                 Name: bookName,
-                Handout: handout,
+                Handout: handout.id,
                 Stat: stat,
                 Owner: owner,
                 CasterClass: casterClass,
@@ -389,7 +381,60 @@ on('ready', () => {
         }
 
         // Update existing book
-        // !SpellMaster --UpdateBook "Tazeka's Spellbook" --ImportSpell "Moonbeam"
+        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --ImportSpell ^Moonbeam^
+        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --RemoveSpell ^Moonbeam^
+        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --UpdateSpell ^Moonbeam^ --ParamName ^Prepared^ --ParamValue ^True^
+        const updateBookTag = '--UpdateBook';
+        if (argWords.includes(updateBookTag)) {
+            const bookName = GetParamValue(argParams, 'UpdateBook');
+            const importSpell = GetParamValue(argParams, 'ImportSpell');
+            const removeSpell = GetParamValue(argParams, 'RemoveSpell');
+            const updateSpell = GetParamValue(argParams, 'UpdateSpell');
+            const paramName = GetParamValue(argParams, 'ParamName');
+            const paramValue = GetParamValue(argParams, 'ParamValue');
+
+            log("Updating book " + bookName);
+
+            if (importSpell) {
+                sendChat(scname, 'IMPORT UNSUPPORTED! :(');
+                return;
+            } else if (removeSpell) {
+                sendChat(scname, 'REMOVE UNSUPPORTED! :(');
+                return;
+            } else if (updateSpell) {
+                const spellbook = state.SpellMaster[bookName];
+                if (paramName === 'Prepared') {
+                    const prepList = spellbook.PreparationLists[spellbook.ActivePrepList].PreparedSpells;
+                    log("Prep List: " + prepList);
+                    if (paramValue === 'True') {
+                        for(let i = 0; i < spellbook.KnownSpells.length; i++) {
+                            const knownSpell = spellbook.KnownSpells[i];
+                            if (knownSpell.Name === updateSpell) {
+                                log("Adding known spell " + knownSpell + " to prepared list");
+                                if (!prepList.includes(knownSpell)) {
+                                    prepList.push(knownSpell);
+                                }
+                                break;
+                            }
+                        }
+                    } else {
+                        for(let i = 0; i < spellbook.KnownSpells.length; i++) {
+                            const knownSpell = spellbook.KnownSpells[i];
+                            if (knownSpell.Name === updateSpell) {
+                                const prepIndex = prepList.indexOf(knownSpell);
+                                if (prepIndex > -1) {
+                                    prepList.splice(prepIndex, 1);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            PrintSpellbook(state.SpellMaster[bookName]);
+            return;
+        }
 
         // Remove existing book
         // !SpellMaster --DeleteBook "Tazeka's Spellbook"
