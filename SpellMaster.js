@@ -402,12 +402,12 @@ on('ready', () => {
         saveString += parseableDetails.includes('wisdom saving throw') || parseableDetails.includes('wisdom save') ? "Wisdom Save" : "";
         saveString += parseableDetails.includes('charisma saving throw') || parseableDetails.includes('charisma save') ? "Charisma Save" : "";
 
-        let spellContents = `/gm &{template:${rt[0]}} {{${rt[1]}=<h3>${spell.Name}</h3><hr>`
+        let spellContents = `/gm &{template:${rt[0]}} {{${rt[1]}=<div align="left" style="margin-left: 7px;margin-right: 7px">`
             + `<h4>${spell.Name}</h4>`
             + `<b>DC:</b> ${dc} ${saveString}<br>`
             + (isSpellAttack ? `<b>Spell Attack:</b> ${attackRollStr}|${attackRollStr}<br>` : '')
             + spellDetails
-            + '}}';
+            + '</div>}}';
 
         log("Spell Contents: " + spellContents);
         sendChat(scname, `/w ${book.Owner} ${spellContents}`);
@@ -484,7 +484,7 @@ on('ready', () => {
                     return;
                 }
 
-                const spellIsPrepared = activePrepList.PreparedSpells.indexOf(spellInstance) > -1;
+                const spellIsPrepared = activePrepList.PreparedSpells.map((item) => {return item.Name;}).indexOf(spellInstance.Name) > -1;
                 if ((spellbook.Filter.Prepared === Filters.WithFlag && !spellIsPrepared) || (spellbook.Filter.Prepared === Filters.WithoutFlag && spellIsPrepared)) {
                     return;
                 }
