@@ -9,6 +9,7 @@ if(!state.SpellMaster) {
 on('ready', () => {
     const chatTrigger = '!SpellMaster';
     const scname = 'SpellMaster';
+    let SpellsIndexed = false;
 
     // Creates dictionary of spell
     const IndexSpellbook = () => {
@@ -16,6 +17,7 @@ on('ready', () => {
             let spell = SpellList[i];
             SpellDict[spell.Name] = spell;
         }
+        SpellsIndexed = true;
     };
     IndexSpellbook();
     log("Spellbook Indexed with " + SpellList.length + " spells.");
@@ -258,6 +260,7 @@ on('ready', () => {
 
     // Prints a spellbook out to its handout
     const PrintSpellbook = (spellbook) => {
+        const activePrepList = spellbook.PreparationLists[spellbook.ActivePrepList];
         let text = "";
         let br = "<br/>";
 
@@ -267,16 +270,16 @@ on('ready', () => {
         text += '<hr>';
 
         // Filter bar
-        text += `|Export|   |Import|${br}`;
-        text += `Filtering: |_| V |_| S |_| M   |_| Concentration  |_| Hide Unprepared   |Search|`;
+        text += `Filtering: |_| V |_| S |_| M - |_| Concentration -|_| Hide Unprepared - |Search| - Prepared Spells: ${activePrepList.PreparedSpells.length}`;
         text += '<hr>';
 
         // Spells
         text += '<h2>Spells</h2>';
-        const activePrepList = spellbook.PreparationLists[spellbook.ActivePrepList];
         for (let i = 0; i < 10; i++) {
+            const curSlotLink = CreateLink(`[${spellbook.CurSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Cur^ --ParamValue ^?{Please enter the new current value for Slot Level ${i}}^`);
+            const maxSlotLink = CreateLink(`[${spellbook.MaxSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Max^ --ParamValue ^?{Please enter the new maximum value for Slot Level ${i}}^`);
             text += i > 0
-                ? `<h3>Level ${i} Spells - |${spellbook.CurSlots[i-1]}| / |${spellbook.MaxSlots[i-1]}| </h3>`
+                ? `<h3>Level ${i} Spells - ${curSlotLink} / ${maxSlotLink} </h3>`
                 : `<h3>Cantrips</h3>`;
             spellbook.KnownSpells.forEach((spellInstance) => {
                 const spell = SpellDict[spellInstance.Name];
@@ -284,8 +287,32 @@ on('ready', () => {
                     const prepButton = activePrepList.PreparedSpells.indexOf(spellInstance) === -1
                         ? CreateLink('[_]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^True^`)
                         : CreateLink('[X]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^False^`);
-                    const expandedText = spellInstance.IsExpanded ? '|-|' : '|+|';
+                    const expandedText = spellInstance.IsExpanded 
+                        ? CreateLink('[-]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Expanded^ --ParamValue ^False^`)
+                        : CreateLink('[+]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Expanded^ --ParamValue ^True^`);
                     text += `<h4>${prepButton} ${spell.Name} ${expandedText}</h4>`;
+                    if (spellInstance.IsExpanded) {
+                        text += `<b>- School:</b> ${spell.School}<br/>`;
+                        text += `<b>- Cast Time:</b> ${spell.CastTime}<br/>`;
+                        text += `<b>- Range:</b> ${spell.Range}<br/>`;
+                        let componentStr = "";
+                        log("Components: " + JSON.stringify(spell.Components));
+                        componentStr += spell.Components.V ? "V" : "";
+                        componentStr += spell.Components.S ? "S" : "";
+                        componentStr += spell.Components.M ? "M" : "";
+                        componentStr += spell.Components.MDetails ? ` (${spell.Components.MDetails})` : "";
+                        text += `<b>- Components:</b> ${componentStr}<br/>`;
+                        text += `<b>- Duration:</b> ${spell.Duration}<br/>`;
+                        let descStr = spell.Desc
+                            .replace("Higher Level:", "<b>At Higher Level:</b>")// This order matters to prevent double-hits
+                            .replace("Higher Levels:", "<b>At Higher Level:</b>")
+                            .replace("At Higher Level:", "<b>At Higher Level:</b>")
+                            .replace("Higher level:", "<b>At Higher Level:</b>")
+                            .replace("At higher level:", "<b>At Higher Level:</b>");
+                        text += `- <b>Description:</b> ${descStr}<br/>`;
+                        text += `- <b>Ability:</b> ${spellInstance.Stat}<br/>`;
+                        text += `- <b>Classes:</b> ${spell.Classes}<br/>`;
+                    }
                 }
             });
             text += `<h4>|+|</h4>`;
@@ -297,7 +324,7 @@ on('ready', () => {
         for (let i = 0; i < spellbook.PreparationLists.length; i++) {
             const curList = spellbook.PreparationLists[i];
             const isActive = spellbook.ActivePrepList === i;
-            text += `<h4>|_| ${curList.Name} |-|`;
+            text += `<h4>|_| ${curList.Name} (${curList.PreparedSpells.length}) |-|`;
         }
         text += `<h4>|+|</h4>`;
 
@@ -310,6 +337,10 @@ on('ready', () => {
     on('chat:message', (msg) => {
         if (msg.type !== 'api') return;
         if (!msg.content.startsWith(chatTrigger)) return;
+        if (!SpellsIndexed) {
+            sendChat(scname, "SpellMaster is still indexing spells.  Please wait a few seconds and try again.");
+            return;
+        }
         
         const argWords = msg.content.split(/\s+/);
         const argParams = msg.content.split('--');
@@ -384,12 +415,18 @@ on('ready', () => {
         // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --ImportSpell ^Moonbeam^
         // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --RemoveSpell ^Moonbeam^
         // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --UpdateSpell ^Moonbeam^ --ParamName ^Prepared^ --ParamValue ^True^
+        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --UpdateSlot ^3^ --ParamName ^Cur^ --ParamValue ^5^
+        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --UpdateSlot ^3^ --ParamName ^Max^ --ParamValue ^5^
         const updateBookTag = '--UpdateBook';
         if (argWords.includes(updateBookTag)) {
+            // Operation codes
             const bookName = GetParamValue(argParams, 'UpdateBook');
             const importSpell = GetParamValue(argParams, 'ImportSpell');
             const removeSpell = GetParamValue(argParams, 'RemoveSpell');
             const updateSpell = GetParamValue(argParams, 'UpdateSpell');
+            const updateSlot = GetParamValue(argParams, 'UpdateSlot');
+
+            // Parameters
             const paramName = GetParamValue(argParams, 'ParamName');
             const paramValue = GetParamValue(argParams, 'ParamValue');
 
@@ -429,6 +466,23 @@ on('ready', () => {
                             }
                         }
                     }
+                } else if (paramName === 'Expanded') {
+                    for (let i = 0; i < spellbook.KnownSpells.length; i++) {
+                        const knownSpell = spellbook.KnownSpells[i];
+                        if (knownSpell.Name === updateSpell) {
+                            knownSpell.IsExpanded = paramValue === 'True';
+                            break;
+                        }
+                    }
+                }
+            } else if (updateSlot) {
+                const spellbook = state.SpellMaster[bookName];
+                const slotIndex = parseInt(updateSlot)-1;
+                const newVal = parseInt(paramValue);
+                if (paramName === 'Max') {
+                    spellbook.MaxSlots[slotIndex] = newVal;
+                } else if (paramName === 'Cur') {
+                    spellbook.CurSlots[slotIndex] = newVal;
                 }
             }
 

@@ -7,14 +7,14 @@ public class SpellComponents {
     public String MDetails = "";
     
     public SpellComponents(String rawComponents) {
-        String[] components = rawComponents.split(", ");
+        String[] components = rawComponents.split(",");
         for(int i = 0; i < components.length; i++){
-            String component = components[i];
-            if(component == "V"){
+            String component = components[i].trim();
+            if(component.toUpperCase().equals("V")){
                 V = true;
-            } else if(component == "S"){
+            } else if(component.toUpperCase().equals("S")){
                 S = true;
-            } else if(component.indexOf("M") == 0){
+            } else if(component.toUpperCase().indexOf("M") == 0){
                 M = true;
                 String mDetailsTag = "M (";
                 if(rawComponents.indexOf(mDetailsTag) != -1){

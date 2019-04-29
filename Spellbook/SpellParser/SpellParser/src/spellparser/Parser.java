@@ -194,14 +194,15 @@ public class Parser {
     }
     
     public Parser() {
-        String rawFolder = "D:/Dropbox/Public/D&D/Tools/API Scripts/Spellbook/SpellParser/SpellParser/src/SpellHTML";
+        String rawFolder = "D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\SpellHTML";
         String[] rawFiles = (new File(rawFolder)).list();
+        System.out.println("Raw Spell Files Count: " + rawFiles.length);
         Gson gson = new Gson();
         ArrayList<Spell> spells = new ArrayList<Spell>();
         
         // Create Raw spells
         try {
-            PrintWriter pw = new PrintWriter("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\Spellbook\\SpellMaster\\SpellParser\\SpellParser\\out\\rawSpells.json");
+            PrintWriter pw = new PrintWriter("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\rawSpells.json");
             pw.println("[");
             for(String file : rawFiles) {
                 //System.out.println("Parsing " + file);
@@ -212,6 +213,7 @@ public class Parser {
                 try {
                     lines = Files.readAllLines(path, charset).toArray();
                 } catch (IOException e) {
+                    System.err.println("Exception: " + e.toString());
                 }
                 
                 Spell spell = ParseRawSpellFile(lines);
@@ -228,7 +230,10 @@ public class Parser {
             pw.println("]");
             pw.flush();
         } catch (FileNotFoundException e) {
+            System.err.println("Exception: " + e.toString());
         }
+
+        System.out.println("Spells Ready for Homebrew Count: " + spells.size());
         
         String homebrewFolder = "D:/Dropbox/Public/D&D/Tools/API Scripts/SpellMaster/Spellbook/SpellParser/SpellParser/src/SpellHomebrew";
         String[] homebrewFiles = (new File(homebrewFolder)).list();
@@ -287,6 +292,8 @@ public class Parser {
             homebrewPW.flush();
         } catch (FileNotFoundException e) {
         }
+
+        System.out.println("Spells Ready for Merge Count: " + spells.size());
         
         // Merged JSON
         try {
@@ -307,17 +314,18 @@ public class Parser {
         } catch(Exception e){
             
         }
+
+        System.out.println("Spells Ready for JS Count: " + spells.size());
         
         // Spellbook JS
         try {
-            System.out.println("Spells Count: " + spells.size());
             PrintWriter jsPW = new PrintWriter("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\SpellbookConst.js");
             jsPW.println("if (typeof MarkStart != 'undefined') MarkStart('SpellList');");
             jsPW.println("const SpellList = [");
             for(int i = 0; i < spells.size(); i++) {
                 Spell spell = spells.get(i);
                 String js = spell.PrintJS();
-                System.out.println("JS: " + js);
+                //System.out.println("JS: " + js);
                 jsPW.print(js);
                 
                 // Add commas if not done
