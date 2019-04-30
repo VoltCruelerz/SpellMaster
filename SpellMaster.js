@@ -354,18 +354,8 @@ on('ready', () => {
     };
 
     // Prints the spell to the chat
-    const PrintSpell = (book, instance, spell, level) => {
-        let rt = '';
-        if (state.SpellMaster.Sheet === 'OGL') {
-            rt = ['desc', 'desc'];
-        } else if (state.SpellMaster.Sheet === '5E-Shaped') {
-            rt = ['5e-shaped', 'text'];
-        } else {
-            rt = ['default', `name=${scname} }}{{note`];
-        }
-        
+    const PrintSpell = (book, instance, spell, level) => {        
         const char = GetCharByAny(book.Owner);
-        
         const pb = parseInt(getattr(char.id, 'pb')) || 0;
         const statMod = parseInt(getattr(char.id, instance.Stat.toLowerCase() + '_mod')) || 0;
         const attackMod = parseInt(getattr(char.id, 'globalmagicmod')) || 0;
@@ -383,13 +373,30 @@ on('ready', () => {
         let spellDetails = GetSpellDetails(instance, spell);
 
         const upcastIndex = spellDetails.indexOf('Higher Levels:');
+        log('Upcast Index: ' + upcastIndex);
         spellDetails = spellDetails.replace(/(\d+)d(\d+)/gmi, (match, p1, p2, offset, string) => {
 
             // Allow upcasting in higher-level casting section
-            const levelScalar = offset > upcastIndex
-                ? level - spell.Level + 1
-                : 1;
-            const retVal = `[[${levelScalar*p1}d${p2}]]`;
+            let levelScalar = 1;
+            let autoEval = false;
+            let prefix = '';
+            let suffix = '';
+            
+            if (level > 0) {
+                if (offset > upcastIndex) {
+                    levelScalar = level - spell.Level;
+                    prefix = match + ' (for a total of ';
+                    suffix = ')';
+                }
+                autoEval = true;
+            } else if (level === 0 && offset <= upcastIndex) {
+                if(casterLevel >= 5) {levelScalar++;}
+                if(casterLevel >= 11) {levelScalar++;}
+                if(casterLevel >= 17) {levelScalar++;}
+                autoEval = true;
+            }
+            
+            const retVal = autoEval ? `${prefix}[[${levelScalar*p1}d${p2}]]${suffix}` : match;
             return retVal;
         });
         let parseableDetails = spellDetails.toLowerCase();
@@ -402,16 +409,22 @@ on('ready', () => {
         saveString += parseableDetails.includes('wisdom saving throw') || parseableDetails.includes('wisdom save') ? "Wisdom Save" : "";
         saveString += parseableDetails.includes('charisma saving throw') || parseableDetails.includes('charisma save') ? "Charisma Save" : "";
 
-        let spellContents = `/gm &{template:${rt[0]}} {{${rt[1]}=<div align="left" style="margin-left: 7px;margin-right: 7px">`
-            + `<h4>${spell.Name}</h4>`
-            + `<b>DC:</b> ${dc} ${saveString}<br>`
-            + (isSpellAttack ? `<b>Spell Attack:</b> ${attackRollStr}|${attackRollStr}<br>` : '')
-            + spellDetails
-            + '</div>}}';
+        const descriptionFull = `<b>- DC:</b> ${dc} ${saveString}<br>${spellDetails}`;
+
+        let spellContents = `&{template:npcatk} `
+            +`{{attack=1}}  `
+            +`{{name=${book.Owner}}}  `
+            +`{{rname=${spell.Name}}}  `
+            +`{{rnamec=${spell.Name}}}  `
+            +`{{r1=${isSpellAttack ? attackRollStr : ''}}}  `
+            +`{{always=0}}  `
+            +`{{r2=${isSpellAttack ? attackRollStr : ''}}}  `
+            +`{{description=${descriptionFull}}}`;
 
         log("Spell Contents: " + spellContents);
         sendChat(scname, `/w ${book.Owner} ${spellContents}`);
         sendChat(scname, `/w gm ${spellContents}`);
+
         return spellContents;
     };
 
