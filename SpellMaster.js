@@ -416,9 +416,9 @@ on('ready', () => {
             +`{{name=${book.Owner}}}  `
             +`{{rname=${spell.Name}}}  `
             +`{{rnamec=${spell.Name}}}  `
-            +`{{r1=${isSpellAttack ? attackRollStr : ''}}}  `
+            +`{{r1=${isSpellAttack ? attackRollStr : '[[0d1]]'}}}  `
             +`{{always=0}}  `
-            +`{{r2=${isSpellAttack ? attackRollStr : ''}}}  `
+            +`{{r2=${isSpellAttack ? attackRollStr : '[[0d1]]'}}}  `
             +`{{description=${descriptionFull}}}`;
 
         log("Spell Contents: " + spellContents);
