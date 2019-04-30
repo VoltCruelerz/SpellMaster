@@ -325,6 +325,21 @@ on('ready', () => {
     };
     const FilterSymbols = ['X', '!', '_'];
 
+    // Sends a message to a gm and a player.  If the player is a gm, don't double-send
+    const sendToGmAndPlayer = (playerid, target, msg) => {
+        let sendSuccess = false;
+        try {
+            sendChat(scname, `/w ${target} ${msg}`);
+            sendSuccess = true;
+        }
+        catch(e) {
+            log('Error: ' + e.Message);
+        }
+        if(!sendSuccess || !playerIsGM(playerid)) {
+            sendChat(scname, `/w gm ${msg}`);
+        }
+    }
+
     // Returns a string that contains the details of a spell (used by expansion and casting)
     const GetSpellDetails = (spellInstance, spell) => {
         text = "";
@@ -332,7 +347,6 @@ on('ready', () => {
         text += `<b>- Cast Time:</b> ${spell.CastTime}<br/>`;
         text += `<b>- Range:</b> ${spell.Range}<br/>`;
         let componentStr = "";
-        log("Components: " + JSON.stringify(spell.Components));
         componentStr += spell.Components.V ? "V" : "";
         componentStr += spell.Components.S ? "S" : "";
         componentStr += spell.Components.M ? "M" : "";
@@ -354,26 +368,19 @@ on('ready', () => {
     };
 
     // Prints the spell to the chat
-    const PrintSpell = (book, instance, spell, level) => {        
+    const PrintSpell = (book, instance, spell, level, playerid) => {        
         const char = GetCharByAny(book.Owner);
         const pb = parseInt(getattr(char.id, 'pb')) || 0;
         const statMod = parseInt(getattr(char.id, instance.Stat.toLowerCase() + '_mod')) || 0;
         const attackMod = parseInt(getattr(char.id, 'globalmagicmod')) || 0;
         const dcMod = parseInt(getattr(char.id, 'spell_dc_mod')) || 0;
         const casterLevel = parseInt(getattr(char.id, 'caster_level')) || 0;
-        log("Retrieved: \n"
-        + " pb: " + pb + "\n"
-        + " statMod: " + statMod + "\n"
-        + " attackMod: " + attackMod + "\n"
-        + " dcMod: " + dcMod + "\n"
-        + " casterLevel: " + casterLevel + "\n");
         const dc = 8 + pb + statMod + dcMod;
 
         let attackRollStr = `[[@{${book.Owner}|d20}cs>20 + ${statMod}[${StatMap[instance.Stat]}] + ${pb}[PROF] + ${attackMod}[ATKMOD]]]`;
         let spellDetails = GetSpellDetails(instance, spell);
 
         const upcastIndex = spellDetails.indexOf('Higher Levels:');
-        log('Upcast Index: ' + upcastIndex);
         spellDetails = spellDetails.replace(/(\d+)d(\d+)/gmi, (match, p1, p2, offset, string) => {
 
             // Allow upcasting in higher-level casting section
@@ -422,8 +429,7 @@ on('ready', () => {
             +`{{description=${descriptionFull}}}`;
 
         log("Spell Contents: " + spellContents);
-        sendChat(scname, `/w ${book.Owner} ${spellContents}`);
-        sendChat(scname, `/w gm ${spellContents}`);
+        sendToGmAndPlayer(playerid, book.Owner, spellContents);
 
         return spellContents;
     };
@@ -706,8 +712,6 @@ on('ready', () => {
             const paramValue = GetParamValue(argParams, 'ParamValue');
             const confirm = GetParamValue(argParams, 'Confirm');
 
-            log("Updating book " + bookName);
-
             // Interaction buttons
             if (importSpell) {
                 const spell = SpellDict[importSpell];
@@ -742,12 +746,10 @@ on('ready', () => {
                 const spellbook = state.SpellMaster[bookName];
                 if (paramName === 'Prepared') {
                     const prepList = spellbook.PreparationLists[spellbook.ActivePrepList].PreparedSpells;
-                    log("Prep List: " + prepList);
                     if (paramValue === 'True') {
                         for(let i = 0; i < spellbook.KnownSpells.length; i++) {
                             const knownSpell = spellbook.KnownSpells[i];
                             if (knownSpell.Name === updateSpell) {
-                                log("Adding known spell " + knownSpell + " to prepared list");
                                 if (!prepList.includes(knownSpell)) {
                                     prepList.push(knownSpell);
                                 }
@@ -835,13 +837,11 @@ on('ready', () => {
                 const spellbook = state.SpellMaster[bookName];
                 const spell = SpellDict[castSpell];
                 const level = parseInt(paramValue);
-                log(`Casting ${spell.Name} from ${spellbook.Name} at level ${level}`);
                 if (spellbook.CurSlots[level-1] === 0 && level === 0) {
                     sendChat(scname, `/w ${msg.who} Unable to cast spell from expended slot level.`);
                     return;
                 }
                 let instance = false;
-                log("Knowns: " + spellbook.KnownSpells.length);
                 for (let i in spellbook.KnownSpells) {
                     let curInstance = spellbook.KnownSpells[i];
                     if (curInstance.Name === castSpell) {
@@ -853,7 +853,7 @@ on('ready', () => {
                     sendChat(scname, `/w ${msg.who} Instance does not exist.`);
                     return;
                 }
-                PrintSpell(spellbook, instance, spell, level);
+                PrintSpell(spellbook, instance, spell, level, msg.playerid);
                 spellbook.CurSlots[level-1]--;
             }
             

@@ -119,7 +119,8 @@ public class Parser {
             }
         }
         classes = classList.toString();
-        classes = classes.substring(1, classes.length()-2);// Remove brackets from outside
+        classes = classes.replace("[", "");
+        classes = classes.replace("]", "");
         
         return new Spell(name, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
     }
