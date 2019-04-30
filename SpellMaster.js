@@ -326,22 +326,23 @@ on('ready', () => {
     const FilterSymbols = ['X', '!', '_'];
 
     // Sends a message to a gm and a player.  If the player is a gm, don't double-send
-    const sendToGmAndPlayer = (playerid, target, msg) => {
+    const sendToGmAndPlayer = (chatMessage, target, msg) => {
         let sendSuccess = false;
         try {
-            sendChat(scname, `/w ${target} ${msg}`);
+            sendChat(scname, `/w "${chatMessage.who.replace(' (GM)', '')}" ${msg}`);
             sendSuccess = true;
         }
         catch(e) {
-            log('Error: ' + e.Message);
+            log('Error sending spellcast: ' + e.Message);
+            log('Spell Text: ' + msg);
         }
-        if(!sendSuccess || !playerIsGM(playerid)) {
+        if(!sendSuccess || !playerIsGM(chatMessage.playerid)) {
             sendChat(scname, `/w gm ${msg}`);
         }
     }
 
     // Returns a string that contains the details of a spell (used by expansion and casting)
-    const GetSpellDetails = (spellInstance, spell) => {
+    const GetSpellDetails = (book, instance, spell, createLinks) => {
         text = "";
         text += `<b>- School:</b> ${spell.School}<br/>`;
         text += `<b>- Cast Time:</b> ${spell.CastTime}<br/>`;
@@ -361,14 +362,19 @@ on('ready', () => {
             .replace("At higher level:", "HLCODE")
             .replace("HLCODE", '<b>- Higher Levels:</b>');
         text += `- <b>Description:</b> ${descStr}<br/>`;
-        text += `- <b>Ability:</b> ${spellInstance.Stat}<br/>`;
+        if(createLinks) {
+            const abilityLink = CreateLink(instance.Stat, `!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^Ability^ --ParamValue ^?{Please select the ability to use when casting this spell.|Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma}^`);
+            text += `- <b>Ability:</b> ${abilityLink}<br/>`;
+        } else {
+            text += `- <b>Ability:</b> ${instance.Stat}<br/>`;
+        }
         text += `- <b>Classes:</b> ${spell.Classes}<br/>`;
 
         return text;
     };
 
     // Prints the spell to the chat
-    const PrintSpell = (book, instance, spell, level, playerid) => {        
+    const PrintSpell = (book, instance, spell, level, chatMessage) => {        
         const char = GetCharByAny(book.Owner);
         const pb = parseInt(getattr(char.id, 'pb')) || 0;
         const statMod = parseInt(getattr(char.id, instance.Stat.toLowerCase() + '_mod')) || 0;
@@ -377,8 +383,10 @@ on('ready', () => {
         const casterLevel = parseInt(getattr(char.id, 'caster_level')) || 0;
         const dc = 8 + pb + statMod + dcMod;
 
-        let attackRollStr = `[[@{${book.Owner}|d20}cs>20 + ${statMod}[${StatMap[instance.Stat]}] + ${pb}[PROF] + ${attackMod}[ATKMOD]]]`;
-        let spellDetails = GetSpellDetails(instance, spell);
+        const statString = statMod !== 0 ? ` + ${statMod}[${StatMap[instance.Stat]}]` : '';
+        const atkString = attackMod !== 0 ? ` + ${attackMod}[ATKMOD]` : '';
+        let attackRollStr = `[[@{${book.Owner}|d20}cs>20${statString} + ${pb}[PROF]${atkString}]]`;
+        let spellDetails = GetSpellDetails(book, instance, spell, false);
 
         const upcastIndex = spellDetails.indexOf('Higher Levels:');
         spellDetails = spellDetails.replace(/(\d+)d(\d+)/gmi, (match, p1, p2, offset, string) => {
@@ -429,8 +437,7 @@ on('ready', () => {
             +`{{description=${descriptionFull}}}`;
 
         log("Spell Contents: " + spellContents);
-        sendToGmAndPlayer(playerid, book.Owner, spellContents);
-
+        sendToGmAndPlayer(chatMessage, book.Owner, spellContents);
         return spellContents;
     };
 
@@ -458,7 +465,10 @@ on('ready', () => {
         
         const searchFilter = CreateLink(`["${spellbook.Filter.Search}"]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Search^ --ParamValue ^?{Please enter the new search string}^`);
         
-        text += `<b>Filtering:</b> ${vFilter} V ${sFilter} S ${mFilter} M - ${concFilter} Concentration - ${rituFilter} Ritual - ${prepFilter} Prepared - ${slotsFilter} Slots Remaining - ${searchFilter} Search - Prepared Spells: ${activePrepList.PreparedSpells.length}`;
+        text += `<b>Filtering:</b> ${vFilter} V ${sFilter} S ${mFilter} M - ${concFilter} Concentration - ${rituFilter} Ritual - ${prepFilter} Prepared - ${slotsFilter} Slots Remaining - ${searchFilter} Search - Prepared Spells: ${activePrepList.PreparedSpells.length}<br/>`;
+        
+        const fillSlotsLink = CreateLink(`[Long Rest]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --SetSlots ^Full^`);
+        text += `<b>Tools:</b> ${fillSlotsLink}<br/>`;
         text += '<hr>';
 
         // Spells
@@ -504,7 +514,7 @@ on('ready', () => {
                 }
 
                 const spellIsPrepared = activePrepList.PreparedSpells.map((item) => {return item.Name;}).indexOf(spellInstance.Name) > -1;
-                if ((spellbook.Filter.Prepared === Filters.WithFlag && !spellIsPrepared) || (spellbook.Filter.Prepared === Filters.WithoutFlag && spellIsPrepared)) {
+                if (spell.Level !== 0 && ((spellbook.Filter.Prepared === Filters.WithFlag && !spellIsPrepared) || (spellbook.Filter.Prepared === Filters.WithoutFlag && spellIsPrepared))) {
                     return;
                 }
 
@@ -560,7 +570,7 @@ on('ready', () => {
                     text += `<h4>${prepButton} ${castLink}${tagStr} ${expandedText}</h4>`;
                     if (spellInstance.IsExpanded) {
                         text += hr;
-                        text += GetSpellDetails(spellInstance, spell);
+                        text += GetSpellDetails(spellbook, spellInstance, spell, true);
                         text += br;
                         text += CreateLink('[DELETE]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^?{Type Yes to delete ${spell.Name}}^`);
                         text += hr;
@@ -693,6 +703,8 @@ on('ready', () => {
         // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --RemovePrepList ^0^ --Confirm ^Yes^
         // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --RenamePrepList ^0^ --ParamValue ^MyNewName^
         // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --CastSpell ^Moonbeam^ --ParamName ^Level^ --ParamValue ^3^
+        // !SpellMaster --UpdateBook ^Izzy's Spellbook^ --UpdateSpell ^Hex^ --ParamName ^Ability^ --ParamValue ^Charisma^
+        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --SetSlots ^Full^
         const updateBookTag = '--UpdateBook';
         if (argWords.includes(updateBookTag)) {
             // Operation codes
@@ -706,6 +718,7 @@ on('ready', () => {
             const removePrepList = GetParamValue(argParams, 'RemovePrepList');
             const renamePrepList = GetParamValue(argParams, 'RenamePrepList');
             const castSpell = GetParamValue(argParams, 'CastSpell');
+            const setSlots = GetParamValue(argParams, 'SetSlots');
 
             // Parameters
             const paramName = GetParamValue(argParams, 'ParamName');
@@ -776,6 +789,14 @@ on('ready', () => {
                             break;
                         }
                     }
+                } else if (paramName === 'Ability') {
+                    for (let i = 0; i < spellbook.KnownSpells.length; i++) {
+                        const knownSpell = spellbook.KnownSpells[i];
+                        if (knownSpell.Name === updateSpell) {
+                            knownSpell.Stat = paramValue;
+                            break;
+                        }
+                    }
                 }
             } else if (updateSlot) {
                 const spellbook = state.SpellMaster[bookName];
@@ -837,6 +858,7 @@ on('ready', () => {
                 const spellbook = state.SpellMaster[bookName];
                 const spell = SpellDict[castSpell];
                 const level = parseInt(paramValue);
+                log(spellbook.Owner + ' is casting ' + spell.Name + ' with level ' + level);
                 if (spellbook.CurSlots[level-1] === 0 && level === 0) {
                     sendChat(scname, `/w ${msg.who} Unable to cast spell from expended slot level.`);
                     return;
@@ -846,6 +868,7 @@ on('ready', () => {
                     let curInstance = spellbook.KnownSpells[i];
                     if (curInstance.Name === castSpell) {
                         instance = curInstance;
+                        log('Instance found at ' + i);
                         break;
                     }
                 }
@@ -853,8 +876,21 @@ on('ready', () => {
                     sendChat(scname, `/w ${msg.who} Instance does not exist.`);
                     return;
                 }
-                PrintSpell(spellbook, instance, spell, level, msg.playerid);
-                spellbook.CurSlots[level-1]--;
+                if(level > 0 && spellbook.CurSlots[level-1] < 1) {
+                    sendChat(scname, `/w ${msg.who} Spell slots of that level are exhausted.`);
+                    return;
+                }
+                PrintSpell(spellbook, instance, spell, level, msg);
+                if(level > 0) {
+                    spellbook.CurSlots[level-1]--;
+                }
+            } else if (setSlots) {
+                const spellbook = state.SpellMaster[bookName];
+                if (setSlots === 'Full') {
+                    for(let i = 0; i < spellbook.CurSlots.length; i++) {
+                        spellbook.CurSlots[i] = spellbook.MaxSlots[i];
+                    }
+                }
             }
             
             // Filtration
