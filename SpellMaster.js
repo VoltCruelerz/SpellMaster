@@ -411,10 +411,13 @@ on('ready', () => {
             .replace("HLCODE", '<b>- Higher Levels:</b>');
         text += `- <b>Description:</b> ${descStr}<br/>`;
         if(createLinks) {
-            const abilityLink = CreateLink(instance.Stat, `!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^Ability^ --ParamValue ^?{Please select the ability to use when casting this spell.|Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma}^`);
-            text += `- <b>Ability:</b> ${abilityLink}<br/>`;
+            const abilityLink = CreateLink('Ability:', `!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^Ability^ --ParamValue ^?{Please select the ability to use when casting this spell.|Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma}^`);
+            text += `- <b>${abilityLink}</b> ${instance.Stat}<br/>`;
+            const notesLink = CreateLink('Notes:',`!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^Notes^ --ParamValue ^?{Please type the new notes section.  You may want to type outside this window and paste for longer messages.  Use html br tag for line breaks.}^`);
+            text += `- <b>${notesLink}</b> ${instance.Notes}<br/>`;
         } else {
             text += `- <b>Ability:</b> ${instance.Stat}<br/>`;
+            text += `- <b>Notes:</b> ${instance.Notes}<br/>`;
         }
         text += `- <b>Classes:</b> ${spell.Classes}<br/>`;
 
@@ -648,6 +651,7 @@ on('ready', () => {
                             || spell.Components.MDetails.includes(spellbook.Filter.Search) 
                             || spell.Desc.includes(spellbook.Filter.Search) 
                             || spell.Duration.includes(spellbook.Filter.Search) 
+                            || spellInstance.Notes.includes(spellbook.Filter.Search)
                             || (spell.Ability && spell.Ability.includes(spellbook.Filter.Search)) 
                             || spell.Classes.includes(spellbook.Filter.Search))) {
                         return;
@@ -656,9 +660,14 @@ on('ready', () => {
                     // Verify correct level
                     if (spell.Level === i) {
                         // Create the preparation button.
-                        let prepButton = spellIsPrepared
-                            ? CreateLink('[X]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^False^`)
-                            : CreateLink('[_]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^True^`);
+                        let prepButton = '';
+                        if (spellInstance.Lock) {
+                            prepButton = '[O]';
+                        } else {
+                            prepButton = spellIsPrepared
+                                ? CreateLink('[X]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^False^`)
+                                : CreateLink('[_]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^True^`);
+                        }
                         // Cantrips are always prepared
                         prepButton = spell.Level === 0
                             ? '[X]'
@@ -697,7 +706,9 @@ on('ready', () => {
                             spellStr += hr;
                             spellStr += GetSpellDetails(spellbook, spellInstance, spell, true);
                             spellStr += br;
-                            spellStr += CreateLink('[DELETE]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^?{Type Yes to delete ${spell.Name}}^`);
+                            spellStr += CreateLink('[Delete]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^?{Type Yes to delete ${spell.Name}}^`);
+                            spellStr += ' - ';
+                            spellStr += CreateLink('[Lock]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Lock^ --ParamValue ^${spellInstance.Lock ? 'False' : 'True'}^`);
                             spellStr += hr;
                         }
                     }
@@ -814,7 +825,9 @@ on('ready', () => {
                         knownSpells.push({
                             Name: curSpell.Name,
                             IsExpanded: false,
-                            Stat: stat
+                            Stat: stat,
+                            Lock: false,
+                            Notes: ''
                         });
                     }
                 }
@@ -911,7 +924,9 @@ on('ready', () => {
                 BookDict[bookName].KnownSpells.push({
                     Name: spell.Name,
                     IsExpanded: false,
-                    Stat: BookDict[bookName].Stat
+                    Stat: BookDict[bookName].Stat,
+                    Lock: false,
+                    Notes: ''
                 });
                 reloadCacheFor.push(CacheOptions.Spells);
             } else if (removeSpell) {
@@ -933,7 +948,6 @@ on('ready', () => {
                                 prepList.splice(prepIndex, 1);
                                 spellUnprepared = true;
                             }
-                            break;
                         }
                     }
                 }
@@ -1004,6 +1018,44 @@ on('ready', () => {
                             break;
                         }
                     }
+                    reloadCacheFor.push(CacheOptions.Spells);
+                } else if (paramName === 'Notes') {
+                    for (let i = 0; i < spellbook.KnownSpells.length; i++) {
+                        const knownSpell = spellbook.KnownSpells[i];
+                        if (knownSpell.Name === updateSpell) {
+                            knownSpell.Notes = paramValue;
+                            break;
+                        }
+                    }
+                    reloadCacheFor.push(CacheOptions.Spells);
+                } else if (paramName === 'Lock') {
+                    for (let i = 0; i < spellbook.KnownSpells.length; i++) {
+                        const knownSpell = spellbook.KnownSpells[i];
+                        if (knownSpell.Name === updateSpell) {
+                            knownSpell.Lock = paramValue === 'True';
+
+                            break;
+                        }
+                    }
+    
+                    if (paramValue === 'True') {
+                        // Remove from any preparation lists (since it's now in all and none of them)
+                        for(let i = 0; i < spellbook.KnownSpells.length; i++) {
+                            const knownSpell = spellbook.KnownSpells[i];
+                            if (knownSpell.Name === updateSpell) {
+                                for(let j = 0; j < spellbook.PreparationLists.length; j++) {
+                                    const prepList = spellbook.PreparationLists[j].PreparedSpells;
+                                    const prepIndex = prepList.indexOf(knownSpell);
+                                    if (prepIndex > -1) {
+                                        prepList.splice(prepIndex, 1);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    reloadCacheFor.push(CacheOptions.Prepared);
+                    reloadCacheFor.push(CacheOptions.PrepLists);
                     reloadCacheFor.push(CacheOptions.Spells);
                 }
             } else if (updateSlot) {
