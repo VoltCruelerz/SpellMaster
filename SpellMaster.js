@@ -12,8 +12,13 @@ on('ready', () => {
     const chatTrigger = '!SpellMaster';// This is the trigger that makes the script listen
     const scname = 'SpellMaster';// How this script shows up when it sends chat messages
     const maxSpellLevel = 10;// My campaign has a few NPCs with 10th-level magic
-
+    
+    // Alias state so we don't accidentally break it.
+    let BookDict = state.SpellMaster;
     let SpellsIndexed = false;
+
+    // A cache of data so not everything is recreated every time the page is drawn.
+    const Cache = {};
 
     // Creates dictionary of spell
     const IndexSpellbook = () => {
@@ -339,6 +344,47 @@ on('ready', () => {
         if(!sendSuccess || !playerIsGM(chatMessage.playerid)) {
             sendChat(scname, `/w gm ${msg}`);
         }
+    };
+
+    const GetMaxPreparationString = (char) => {
+        const classDisplay = getattr(char.id, 'class_display');
+        const leveledClasses = classDisplay.split(',');
+        let prepString = '';
+        for(let i = 0; i < leveledClasses.length; i++) {
+            const classDetails = leveledClasses[i].trim().split(' ');
+            const className = classDetails[0];
+            const classLevel = parseInt(classDetails[1]);
+            if (className === 'Cleric' || className === 'Druid' || className === 'Shaman') {
+                const statMod = parseInt(getattr(char.id, 'wisdom_mod')) || 0;
+                prepString += `/ ${classLevel + statMod} (${className}) `;
+            } else if (className === 'Wizard' || className === 'Artificer') {
+                const statMod = parseInt(getattr(char.id, 'intelligence_mod')) || 0;
+                prepString += `/ ${classLevel + statMod} (${className}) `;
+            } else if (className === 'Warlock' || className === 'Witch') {
+                const spellsKnownAtLevel = [2,3,4,5,6,7,8,9,10,10,11,11,12,12,13,13,14,14,15,15];
+                let maxKnown = spellsKnownAtLevel[classLevel];
+                maxKnown += classLevel >= 11 ? 1 : 0;// Mystic Arcanum L6
+                maxKnown += classLevel >= 13 ? 1 : 0;// Mystic Arcanum L7
+                maxKnown += classLevel >= 15 ? 1 : 0;// Mystic Arcanum L8
+                maxKnown += classLevel >= 17 ? 1 : 0;// Mystic Arcanum L9
+                const statMod = parseInt(getattr(char.id, 'charisma_mod')) || 0;
+                prepString += `/ ${maxKnown} (${className}) `;
+            } else if (className === 'Sorcerer') {
+                const spellsKnownAtLevel = [2,3,4,5,6,7,8,9,10,11,12,12,13,13,14,14,15,15,15,15];
+                let maxKnown = spellsKnownAtLevel[classLevel];
+                const statMod = parseInt(getattr(char.id, 'charisma_mod')) || 0;
+                prepString += `/ ${maxKnown} (${className}) `;
+            } else if (className === 'Paladin') {
+                const statMod = parseInt(getattr(char.id, 'charisma_mod')) || 0;
+                prepString += `/ ${Math.floor(classLevel/2) + statMod} (${className}) `;
+            } else if (className === 'Bard') {
+                const spellsKnownAtLevel = [4,5,6,7,8,9,10,11,12,14,15,15,16,18,19,19,20,22,22,22];
+                let maxKnown = spellsKnownAtLevel[classLevel];
+                const statMod = parseInt(getattr(char.id, 'charisma_mod')) || 0;
+                prepString += `/ ${maxKnown} (${className}) `;
+            } 
+        }
+        return prepString;
     }
 
     // Returns a string that contains the details of a spell (used by expansion and casting)
@@ -441,163 +487,258 @@ on('ready', () => {
         return spellContents;
     };
 
-    // Prints a spellbook out to its handout
-    const PrintSpellbook = (spellbook) => {
+    // The various subsections of a spellbook that can be cached
+    const CacheOptions = {
+        All: 0,
+        Owner: 1,
+        Filtering: 2,
+        Tools: 3,
+        Prepared: 4,
+        Spells: 5,
+        PrepLists: 6
+    };
+
+    // Prints a spellbook out to its handout.
+    // spellbook: the spellbook object
+    // forceReload: an array of CacheOptions that must be rebuilt.
+    const PrintSpellbook = (spellbook, forceReload) => {
         const activePrepList = spellbook.PreparationLists[spellbook.ActivePrepList];
+        const char = GetCharByAny(spellbook.Owner);
         let text = "";
         let br = "<br/>";
         let hr = "<hr>";
 
+        // Load the cache or build a new one
+        let cachedBook = Cache[spellbook.Name];
+        if (!cachedBook) {
+            // Create a new cache object
+            cachedBook = {
+                OwnerStr: '',
+                FilteringStr: '',
+                ToolsStr: '',
+                PreparedStr: '',
+                SpellsStr: '',
+                PrepListsStr: ''
+            };
+            Cache[spellbook.Name] = cachedBook;
+            // There is no cache.  Build everything.
+            forceReload = [CacheOptions.All];
+        }
+
+        // =================================================================================
         // Owner
-        let uri = `http://journal.roll20.net/character/${GetCharByAny(spellbook.Owner).id}`;
-        text += `<i>A spellbook for </i>${CreateLink(spellbook.Owner, uri)}`;
-        text += '<hr>';
+        let ownerStr = '';
+        if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Owner)) {
+            log('Rebuilding Owner');
+            let uri = `http://journal.roll20.net/character/${char.id}`;
+            ownerStr += `<i>A spellbook for </i>${CreateLink(spellbook.Owner, uri)}`;
+            ownerStr += '<hr>';
+            cachedBook.OwnerStr = ownerStr;
+        } else {
+            log('Using Cached Owner');
+            ownerStr = cachedBook.OwnerStr;
+        }
+        text += ownerStr;
 
+        // =================================================================================
         // Filter bar
-        const vFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.V]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^V^ --ParamValue ^?{Please enter the new filter option|V,${Filters.WithFlag}|No-V,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
-        const sFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.S]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^S^ --ParamValue ^?{Please enter the new filter option|S,${Filters.WithFlag}|No-S,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
-        const mFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.M]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^M^ --ParamValue ^?{Please enter the new filter option|M,${Filters.WithFlag}|No-M,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
+        let filterStr = '';
+        if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Filtering)) {
+            log('Rebuilding Filtering');
+            const vFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.V]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^V^ --ParamValue ^?{Please enter the new filter option|V,${Filters.WithFlag}|No-V,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
+            const sFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.S]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^S^ --ParamValue ^?{Please enter the new filter option|S,${Filters.WithFlag}|No-S,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
+            const mFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.M]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^M^ --ParamValue ^?{Please enter the new filter option|M,${Filters.WithFlag}|No-M,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
+            const concFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.Concentration]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Concentration^ --ParamValue ^?{Please enter the new filter option|Concentration,${Filters.WithFlag}|No-Concentration,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
+            const rituFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.Ritual]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Ritual^ --ParamValue ^?{Please enter the new filter option|Ritual,${Filters.WithFlag}|No-Ritual,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
+            const prepFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.Prepared]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Prepared^ --ParamValue ^?{Please enter the new filter option|Prepared,${Filters.WithFlag}|No-Prepared,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
+            const slotsFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.Slots]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Slots^ --ParamValue ^?{Please enter the new filter option|Slots Remaining,${Filters.WithFlag}|Slots Empty,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
+            const searchFilter = CreateLink(`["${spellbook.Filter.Search}"]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Search^ --ParamValue ^?{Please enter the new search string}^`);
+            filterStr += `<b>Filtering:</b> ${vFilter} V ${sFilter} S ${mFilter} M - ${concFilter} Concentration - ${rituFilter} Ritual - ${prepFilter} Prepared - ${slotsFilter} Slots Remaining - ${searchFilter} Search<br/>`;
+            cachedBook.FilteringStr = filterStr;
+        } else {
+            log('Using Cached Filtering');
+            filterStr = cachedBook.FilteringStr;
+        }
+        text += filterStr;
+        
+        // =================================================================================
+        // Tools
+        let toolsStr = '';
+        if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Tools)) {
+            log('Rebuilding Tools');
+            const fillSlotsLink = CreateLink(`[Long Rest]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --SetSlots ^Full^`);
+            toolsStr += `<b>Tools:</b> ${fillSlotsLink}<br/>`;
+            cachedBook.ToolsStr = toolsStr;
+        } else {
+            log('Using Cached Tools');
+            toolsStr = cachedBook.ToolsStr;
+        }
+        text += toolsStr;
 
-        const concFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.Concentration]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Concentration^ --ParamValue ^?{Please enter the new filter option|Concentration,${Filters.WithFlag}|No-Concentration,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
-        const rituFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.Ritual]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Ritual^ --ParamValue ^?{Please enter the new filter option|Ritual,${Filters.WithFlag}|No-Ritual,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
-        const prepFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.Prepared]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Prepared^ --ParamValue ^?{Please enter the new filter option|Prepared,${Filters.WithFlag}|No-Prepared,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
-        const slotsFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.Slots]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Slots^ --ParamValue ^?{Please enter the new filter option|Slots Remaining,${Filters.WithFlag}|Slots Empty,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
-        
-        const searchFilter = CreateLink(`["${spellbook.Filter.Search}"]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Search^ --ParamValue ^?{Please enter the new search string}^`);
-        
-        text += `<b>Filtering:</b> ${vFilter} V ${sFilter} S ${mFilter} M - ${concFilter} Concentration - ${rituFilter} Ritual - ${prepFilter} Prepared - ${slotsFilter} Slots Remaining - ${searchFilter} Search - Prepared Spells: ${activePrepList.PreparedSpells.length}<br/>`;
-        
-        const fillSlotsLink = CreateLink(`[Long Rest]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --SetSlots ^Full^`);
-        text += `<b>Tools:</b> ${fillSlotsLink}<br/>`;
-        text += '<hr>';
+        // =================================================================================
+        // Prepared Spell Count
+        let preparedStr = '';
+        if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Prepared)) {
+            log('Rebuilding Prepared');
+            const prepString = `${activePrepList.PreparedSpells.length} ${GetMaxPreparationString(char)}`;
+            preparedStr += `<b>Prepared:</b> ${prepString}<br/>`;
+            preparedStr += '<hr>';
+            cachedBook.PreparedStr = preparedStr;
+        } else {
+            log('Using Cached Prepared');
+            preparedStr = cachedBook.PreparedStr;
+        }
+        text += preparedStr;
 
+        // =================================================================================
         // Spells
-        text += '<h2>Spells</h2>';
-        text += '<hr>';
-        for (let i = 0; i < maxSpellLevel-1; i++) {
-            const curSlotLink = CreateLink(`[${spellbook.CurSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Cur^ --ParamValue ^?{Please enter the new current value for Slot Level ${i}}^`);
-            const maxSlotLink = CreateLink(`[${spellbook.MaxSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Max^ --ParamValue ^?{Please enter the new maximum value for Slot Level ${i}}^`);
-            text += i > 0
-                ? `<h3>Level ${i} Spells - ${curSlotLink} / ${maxSlotLink} </h3>`
-                : `<h3>Cantrips</h3>`;
-
-            // Perform alpha sort on known spells (in case one got added)
-            spellbook.KnownSpells.sort(Sorters.NameAlpha);
-
-            // Print all spells at current level
-            spellbook.KnownSpells.forEach((spellInstance) => {
-                const spell = SpellDict[spellInstance.Name];
-                // Check filtering
-                if ((spellbook.Filter.V === Filters.WithFlag && !spell.Components.V) 
-                    || (spellbook.Filter.V === Filters.WithoutFlag && spell.Components.V)) {
-                    return;
-                }
-                if ((spellbook.Filter.S === Filters.WithFlag && !spell.Components.S) 
-                    || (spellbook.Filter.S === Filters.WithoutFlag && spell.Components.S)) {
-                    return;
-                }
-                if ((spellbook.Filter.M === Filters.WithFlag && !spell.Components.M) 
-                    || (spellbook.Filter.M === Filters.WithoutFlag && spell.Components.M)) {
-                    return;
-                }
-                if ((spellbook.Filter.Concentration === Filters.WithFlag && spell.Duration.toLowerCase().indexOf('concentration') === -1) 
-                    || (spellbook.Filter.Concentration === Filters.WithoutFlag && spell.Duration.toLowerCase().indexOf('concentration') > -1)) {
-                    return;
-                }
-                if ((spellbook.Filter.Ritual === Filters.WithFlag && !spell.IsRitual) 
-                    || (spellbook.Filter.Ritual === Filters.WithoutFlag && spell.IsRitual)) {
-                    return;
-                }
-                if ((spellbook.Filter.Slots === Filters.WithFlag && (spell.Level !== 0 && !spellbook.CurSlots[spell.Level-1])) 
-                    || (spellbook.Filter.Slots === Filters.WithoutFlag && !(spell.Level !== 0 && !spellbook.CurSlots[spell.Level-1]))) {
-                    return;
-                }
-
-                const spellIsPrepared = activePrepList.PreparedSpells.map((item) => {return item.Name;}).indexOf(spellInstance.Name) > -1;
-                if (spell.Level !== 0 && ((spellbook.Filter.Prepared === Filters.WithFlag && !spellIsPrepared) || (spellbook.Filter.Prepared === Filters.WithoutFlag && spellIsPrepared))) {
-                    return;
-                }
-
-                if (spellbook.Filter.Search.length > 0 
-                    && !(spell.Name.includes(spellbook.Filter.Search) 
-                        || spell.Components.MDetails.includes(spellbook.Filter.Search) 
-                        || spell.Desc.includes(spellbook.Filter.Search) 
-                        || spell.Duration.includes(spellbook.Filter.Search) 
-                        || (spell.Ability && spell.Ability.includes(spellbook.Filter.Search)) 
-                        || spell.Classes.includes(spellbook.Filter.Search))) {
-                    return;
-                }
-
-                // Verify correct level
-                if (spell.Level === i) {
-                    // Create the preparation button.
-                    let prepButton = spellIsPrepared
-                        ? CreateLink('[X]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^False^`)
-                        : CreateLink('[_]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^True^`);
-                    // Cantrips are always prepared
-                    prepButton = spell.Level === 0
-                        ? '[X]'
-                        : prepButton;
-
-                    let tagStr = "";
-                    tagStr += spell.IsRitual ? " (R)" : "";
-                    tagStr += spell.Duration.toLowerCase().includes('concentration') ? " (C)" : "";
-
-                    const expandedText = spellInstance.IsExpanded 
-                        ? CreateLink('[-]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Expanded^ --ParamValue ^False^`)
-                        : CreateLink('[+]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Expanded^ --ParamValue ^True^`);
-
-                    // Generate upcast string
-                    let canUpcast = false;
-                    let levelString = spell.Level;
-                    if (spell.Level > 0) {
-                        let upcastOptions = "";
-                        for(let j = spell.Level-1; j < maxSpellLevel; j++) {
-                            if (spellbook.CurSlots[j] > 0) {
-                                upcastOptions += `|${j+1}`;
-                                if (j >= spell.Level) {
-                                    canUpcast = true;
+        let spellStr = '';
+        if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Spells)) {
+            log('Rebuilding Spells');
+            spellStr += '<h2>Spells</h2>';
+            spellStr += '<hr>';
+            for (let i = 0; i < maxSpellLevel; i++) {
+                const curSlotLink = CreateLink(`[${spellbook.CurSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Cur^ --ParamValue ^?{Please enter the new current value for Slot Level ${i}}^`);
+                const maxSlotLink = CreateLink(`[${spellbook.MaxSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Max^ --ParamValue ^?{Please enter the new maximum value for Slot Level ${i}}^`);
+                spellStr += i > 0
+                    ? `<h3>Level ${i} Spells - ${curSlotLink} / ${maxSlotLink} </h3>`
+                    : `<h3>Cantrips</h3>`;
+    
+                // Perform alpha sort on known spells (in case one got added)
+                spellbook.KnownSpells.sort(Sorters.NameAlpha);
+    
+                // Print all spells at current level
+                spellbook.KnownSpells.forEach((spellInstance) => {
+                    const spell = SpellDict[spellInstance.Name];
+                    // Check filtering
+                    if ((spellbook.Filter.V === Filters.WithFlag && !spell.Components.V) 
+                        || (spellbook.Filter.V === Filters.WithoutFlag && spell.Components.V)) {
+                        return;
+                    }
+                    if ((spellbook.Filter.S === Filters.WithFlag && !spell.Components.S) 
+                        || (spellbook.Filter.S === Filters.WithoutFlag && spell.Components.S)) {
+                        return;
+                    }
+                    if ((spellbook.Filter.M === Filters.WithFlag && !spell.Components.M) 
+                        || (spellbook.Filter.M === Filters.WithoutFlag && spell.Components.M)) {
+                        return;
+                    }
+                    if ((spellbook.Filter.Concentration === Filters.WithFlag && spell.Duration.toLowerCase().indexOf('concentration') === -1) 
+                        || (spellbook.Filter.Concentration === Filters.WithoutFlag && spell.Duration.toLowerCase().indexOf('concentration') > -1)) {
+                        return;
+                    }
+                    if ((spellbook.Filter.Ritual === Filters.WithFlag && !spell.IsRitual) 
+                        || (spellbook.Filter.Ritual === Filters.WithoutFlag && spell.IsRitual)) {
+                        return;
+                    }
+                    if ((spellbook.Filter.Slots === Filters.WithFlag && (spell.Level !== 0 && !spellbook.CurSlots[spell.Level-1])) 
+                        || (spellbook.Filter.Slots === Filters.WithoutFlag && !(spell.Level !== 0 && !spellbook.CurSlots[spell.Level-1]))) {
+                        return;
+                    }
+    
+                    const spellIsPrepared = activePrepList.PreparedSpells.map((item) => {return item.Name;}).indexOf(spellInstance.Name) > -1;
+                    if (spell.Level !== 0 && ((spellbook.Filter.Prepared === Filters.WithFlag && !spellIsPrepared) || (spellbook.Filter.Prepared === Filters.WithoutFlag && spellIsPrepared))) {
+                        return;
+                    }
+    
+                    if (spellbook.Filter.Search.length > 0 
+                        && !(spell.Name.includes(spellbook.Filter.Search) 
+                            || spell.Components.MDetails.includes(spellbook.Filter.Search) 
+                            || spell.Desc.includes(spellbook.Filter.Search) 
+                            || spell.Duration.includes(spellbook.Filter.Search) 
+                            || (spell.Ability && spell.Ability.includes(spellbook.Filter.Search)) 
+                            || spell.Classes.includes(spellbook.Filter.Search))) {
+                        return;
+                    }
+    
+                    // Verify correct level
+                    if (spell.Level === i) {
+                        // Create the preparation button.
+                        let prepButton = spellIsPrepared
+                            ? CreateLink('[X]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^False^`)
+                            : CreateLink('[_]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^True^`);
+                        // Cantrips are always prepared
+                        prepButton = spell.Level === 0
+                            ? '[X]'
+                            : prepButton;
+    
+                        let tagStr = "";
+                        tagStr += spell.IsRitual ? " (R)" : "";
+                        tagStr += spell.Duration.toLowerCase().includes('concentration') ? " (C)" : "";
+    
+                        const expandedText = spellInstance.IsExpanded 
+                            ? CreateLink('[-]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Expanded^ --ParamValue ^False^`)
+                            : CreateLink('[+]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Expanded^ --ParamValue ^True^`);
+    
+                        // Generate upcast string
+                        let canUpcast = false;
+                        let levelString = spell.Level;
+                        if (spell.Level > 0) {
+                            let upcastOptions = "";
+                            for(let j = spell.Level-1; j < maxSpellLevel; j++) {
+                                if (spellbook.CurSlots[j] > 0) {
+                                    upcastOptions += `|${j+1}`;
+                                    if (j >= spell.Level) {
+                                        canUpcast = true;
+                                    }
                                 }
                             }
+                            if (canUpcast) {
+                                levelString = `?{Select the level at which to cast ${spell.Name}${upcastOptions}}`;
+                            }
                         }
-                        if (canUpcast) {
-                            levelString = `?{Select the level at which to cast ${spell.Name}${upcastOptions}}`;
+    
+                        const castLink = CreateLink(spell.Name, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --CastSpell ^${spellInstance.Name}^ --ParamName ^Level^ --ParamValue ^${levelString}^`);
+    
+                        spellStr += `<h4>${prepButton} ${castLink}${tagStr} ${expandedText}</h4>`;
+                        if (spellInstance.IsExpanded) {
+                            spellStr += hr;
+                            spellStr += GetSpellDetails(spellbook, spellInstance, spell, true);
+                            spellStr += br;
+                            spellStr += CreateLink('[DELETE]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^?{Type Yes to delete ${spell.Name}}^`);
+                            spellStr += hr;
                         }
                     }
-
-                    const castLink = CreateLink(spell.Name, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --CastSpell ^${spellInstance.Name}^ --ParamName ^Level^ --ParamValue ^${levelString}^`);
-
-                    text += `<h4>${prepButton} ${castLink}${tagStr} ${expandedText}</h4>`;
-                    if (spellInstance.IsExpanded) {
-                        text += hr;
-                        text += GetSpellDetails(spellbook, spellInstance, spell, true);
-                        text += br;
-                        text += CreateLink('[DELETE]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^?{Type Yes to delete ${spell.Name}}^`);
-                        text += hr;
-                    }
-                }
-            });
-            text += br;
-            text += CreateLink('<b>[+]</b>', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ImportSpell ^?{Please enter the name of the spell you would like to import.}^`);
-            text += hr;
+                });
+                spellStr += br;
+                spellStr += CreateLink('<b>[+]</b>', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ImportSpell ^?{Please enter the name of the spell you would like to import.}^`);
+                spellStr += hr;
+            }
+            cachedBook.SpellsStr = spellStr;
+        } else {
+            log('Using Cached Spells');
+            spellStr = cachedBook.SpellsStr;
         }
+        text += spellStr;
+        
 
+        // =================================================================================
         // Preparation Tabs
-        text += '<h2>Preparation Lists</h2>';
-        for (let i = 0; i < spellbook.PreparationLists.length; i++) {
-            const curList = spellbook.PreparationLists[i];
-            const isActive = spellbook.ActivePrepList === i;
-            const radioButtonActive = isActive
-                ? '[X]'
-                : '[_]';
-            const radioButtonLink = CreateLink(radioButtonActive, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --SetActive ^${i}^`);
-            const deletePrepLink = CreateLink('[-]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemovePrepList ^${i}^ --Confirm ^?{Type Yes to delete ${curList.Name}}^`);
-            const nameLink = CreateLink(curList.Name, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RenamePrepList ^${i}^ --ParamValue ^?{Please enter the new name for ${curList.Name}}^`);
-            text += `<h4>${radioButtonLink} ${nameLink} (${curList.PreparedSpells.length}) ${deletePrepLink}</h4>`;
+        let prepListStr = '';
+        if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.PrepLists)) {
+            log('Rebuilding Prep Lists');
+            prepListStr += '<h2>Preparation Lists</h2>';
+            for (let i = 0; i < spellbook.PreparationLists.length; i++) {
+                const curList = spellbook.PreparationLists[i];
+                const isActive = spellbook.ActivePrepList === i;
+                const radioButtonActive = isActive
+                    ? '[X]'
+                    : '[_]';
+                const radioButtonLink = CreateLink(radioButtonActive, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --SetActive ^${i}^`);
+                const deletePrepLink = CreateLink('[-]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemovePrepList ^${i}^ --Confirm ^?{Type Yes to delete ${curList.Name}}^`);
+                const nameLink = CreateLink(curList.Name, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RenamePrepList ^${i}^ --ParamValue ^?{Please enter the new name for ${curList.Name}}^`);
+                prepListStr += `<h4>${radioButtonLink} ${nameLink} (${curList.PreparedSpells.length}) ${deletePrepLink}</h4>`;
+            }
+            prepListStr += br;
+            prepListStr += CreateLink(`<b>[+]</b>`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --AddPrepList ^?{Please enter the new preparation list name below.}^`);
+            cachedBook.PrepListsStr = prepListStr;
+        } else {
+            log('Using Cached Prep List');
+            prepListStr = cachedBook.PrepListsStr;
         }
-        text += br;
-        text += CreateLink(`<b>[+]</b>`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --AddPrepList ^?{Please enter the new preparation list name below.}^`);
+        text += prepListStr;
 
+        // =================================================================================
         // Print
         //log(text);
         GetHandout(spellbook.Handout).set('notes', text);
@@ -615,10 +756,28 @@ on('ready', () => {
         const argWords = msg.content.split(/\s+/);
         const argParams = msg.content.split('--');
 
+        // Prints the chat UI menu
+        // !SpellMaster --Menu
+        const printMenu = '--Menu';
+        if(argWords.includes(printMenu)) {
+            let menu = `/w gm &{template:desc} {{desc=<h3>Spell Master</h3><hr>`
+                + `[Create Spellbook](!SpellMaster `
+                    + `--CreateBook ^?{Please type the name of your previously-created handout to be used for this spellbook.}^ `
+                    + `--Owner ^?{Please enter the name of the character that will use this.}^ `
+                    + `--Stat ^?{Please list their primary spellcasting ability.|Intelligence|Wisdom|Charisma}^ `
+                    + `--ImportClass ^?{Please select a spell list to import in its entirety.  Only recommended for Cleric and Druid.|Artificer|Bard|Cleric|Druid|Paladin|Ranger|Shaman|Warlock|Wizard|None}^ `
+                    + `--Level ^?{Please input their total spell-caster level.  Do not count pact magic levels.}^)<br/>`
+                + `[Delete Spellbook](!SpellMaster --DeleteBook ^?{Please type the name of the spellbook to delete.}^ --Confirm ^?{Please type Yes to confirm}^)`
+                + `}}`;
+            log('Menu: ' + menu);
+            sendChat(scname, menu);
+            return;
+        }
+
         // Create new spell book handout
         // !SpellMaster --CreateBook ^Tazeka's Spells^ --Owner ^Tazeka Liranov^ --Stat ^Wisdom^ --ImportClass ^Druid^ --Level ^11^
         const createBookTag = '--CreateBook';
-        if(argWords.includes(createBookTag)){
+        if(argWords.includes(createBookTag)) {
             const bookName = GetParamValue(argParams, 'CreateBook');
             const owner = GetParamValue(argParams, 'Owner');
             const stat = GetParamValue(argParams, 'Stat');
@@ -628,13 +787,18 @@ on('ready', () => {
             log("To Configure Handout \"" + bookName + "\" as a spellbook");
             const handout = GetHandout(bookName);
             if(!handout){
-                sendChat(scname, `/w ${msg.who} ERROR: No such handout exists!`);
+                sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No such handout as ${bookName} exists!`);
+                return;
+            }
+            const char = GetCharByAny(owner);
+            if (!char) {
+                sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No such character ${owner} exists!`);
                 return;
             }
 
             // Get spells for class
             let knownSpells = [];
-            if (casterClass !== null) {
+            if (casterClass !== null && casterClass.length > 0 && casterClass !== 'None') {
                 for (let i = 0; i < SpellList.length; i++) {
                     const curSpell = SpellList[i];
 
@@ -658,7 +822,7 @@ on('ready', () => {
             const type = GetCasterTypeFromClass(casterClass);
 
             // Create state entry
-            state.SpellMaster[bookName] = {
+            BookDict[bookName] = {
                 IsSpellbook: true,
                 Name: bookName,
                 Handout: handout.id,
@@ -687,8 +851,8 @@ on('ready', () => {
                 MaxSlots: GetBaseSpellSlots(type, level)
             };
             log("Successfully created a new spell list!");
-            PrintSpellbook(state.SpellMaster[bookName]);
-            sendChat(scname, `/w ${msg.who} Spellbook created.`);
+            PrintSpellbook(BookDict[bookName], [CacheOptions.All]);
+            sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Spellbook created.`);
             return;
         }
 
@@ -707,8 +871,15 @@ on('ready', () => {
         // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --SetSlots ^Full^
         const updateBookTag = '--UpdateBook';
         if (argWords.includes(updateBookTag)) {
-            // Operation codes
+            // Book to use
             const bookName = GetParamValue(argParams, 'UpdateBook');
+            const spellbook = BookDict[bookName];
+            if (!spellbook) {
+                sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" No such book as ${bookName}`);
+                return;
+            }
+
+            // Other operation codes
             const importSpell = GetParamValue(argParams, 'ImportSpell');
             const removeSpell = GetParamValue(argParams, 'RemoveSpell');
             const updateSpell = GetParamValue(argParams, 'UpdateSpell');
@@ -725,24 +896,47 @@ on('ready', () => {
             const paramValue = GetParamValue(argParams, 'ParamValue');
             const confirm = GetParamValue(argParams, 'Confirm');
 
+            // the list of caches that need to be updated.  Duplicates are fine.
+            reloadCacheFor = [];
+
             // Interaction buttons
             if (importSpell) {
                 const spell = SpellDict[importSpell];
                 if (!spell) {
-                    sendChat(scname, `/w ${msg.who} Invalid spell name to import: ${importSpell}`);
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Invalid spell name to import: ${importSpell}`);
                     return;
                 }
-                state.SpellMaster[bookName].KnownSpells.push({
+                BookDict[bookName].KnownSpells.push({
                     Name: spell.Name,
                     IsExpanded: false,
-                    Stat: state.SpellMaster[bookName].Stat
+                    Stat: BookDict[bookName].Stat
                 });
+                reloadCacheFor.push(CacheOptions.Spells);
             } else if (removeSpell) {
                 if (confirm !== 'Yes') {
                     return;
                 }
-                const knownSpells = state.SpellMaster[bookName].KnownSpells;
+                const knownSpells = spellbook.KnownSpells;
+                let spellUnprepared = false;
                 let spellDeleted = false;
+
+                // Remove from any preparation lists
+                for(let i = 0; i < spellbook.KnownSpells.length; i++) {
+                    const knownSpell = spellbook.KnownSpells[i];
+                    if (knownSpell.Name === removeSpell) {
+                        for(let j = 0; j < spellbook.PreparationLists.length; j++) {
+                            const prepList = spellbook.PreparationLists[j].PreparedSpells;
+                            const prepIndex = prepList.indexOf(knownSpell);
+                            if (prepIndex > -1) {
+                                prepList.splice(prepIndex, 1);
+                                spellUnprepared = true;
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                // Remove from known list
                 for (let i = 0; i < knownSpells.length; i++) {
                     const curSpellInstance = knownSpells[i];
                     if (curSpellInstance.Name === removeSpell) {
@@ -751,12 +945,19 @@ on('ready', () => {
                         break;
                     }
                 }
+
                 if (!spellDeleted) {
-                    sendChat(scname, `/w ${msg.who} Invalid spell name to delete: ${removeSpell}`);
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Invalid spell name to delete: ${removeSpell}`);
                     return;
                 }
+
+                // Set cache options
+                reloadCacheFor.push(CacheOptions.Spells);
+                if (spellUnprepared) {
+                    reloadCacheFor.push(CacheOptions.Prepared);
+                    reloadCacheFor.push(CacheOptions.PrepLists);
+                }
             } else if (updateSpell) {
-                const spellbook = state.SpellMaster[bookName];
                 if (paramName === 'Prepared') {
                     const prepList = spellbook.PreparationLists[spellbook.ActivePrepList].PreparedSpells;
                     if (paramValue === 'True') {
@@ -781,6 +982,9 @@ on('ready', () => {
                             }
                         }
                     }
+                    reloadCacheFor.push(CacheOptions.Spells);
+                    reloadCacheFor.push(CacheOptions.Prepared);
+                    reloadCacheFor.push(CacheOptions.PrepLists);
                 } else if (paramName === 'Expanded') {
                     for (let i = 0; i < spellbook.KnownSpells.length; i++) {
                         const knownSpell = spellbook.KnownSpells[i];
@@ -789,6 +993,7 @@ on('ready', () => {
                             break;
                         }
                     }
+                    reloadCacheFor.push(CacheOptions.Spells);
                 } else if (paramName === 'Ability') {
                     for (let i = 0; i < spellbook.KnownSpells.length; i++) {
                         const knownSpell = spellbook.KnownSpells[i];
@@ -797,9 +1002,9 @@ on('ready', () => {
                             break;
                         }
                     }
+                    reloadCacheFor.push(CacheOptions.Spells);
                 }
             } else if (updateSlot) {
-                const spellbook = state.SpellMaster[bookName];
                 const slotIndex = parseInt(updateSlot)-1;
                 const newVal = parseInt(paramValue);
                 if (paramName === 'Max') {
@@ -807,12 +1012,12 @@ on('ready', () => {
                 } else if (paramName === 'Cur') {
                     spellbook.CurSlots[slotIndex] = newVal;
                 }
+                reloadCacheFor.push(CacheOptions.Spells);
             } else if (addPrepList) {
-                const spellbook = state.SpellMaster[bookName];
                 for(let i = 0; i < spellbook.PreparationLists.length; i++) {
                     const existingPrepList = spellbook.PreparationLists[i];
                     if (existingPrepList.Name === addPrepList) {
-                        sendChat(scname, `/w ${msg.who} Invalid preparation list name ${addPrepList} as it already exists in this spellbook.`);
+                        sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Invalid preparation list name ${addPrepList} as it already exists in this spellbook.`);
                         return;
                     }
                 }
@@ -820,47 +1025,53 @@ on('ready', () => {
                     Name: addPrepList,
                     PreparedSpells: []// Will be formatted as an array of spell names that are prepared when a certain list is active
                 });
+
+                reloadCacheFor.push(CacheOptions.PrepLists);
             } else if (setActive) {
-                const spellbook = state.SpellMaster[bookName];
-                const activeIndex = parseInt(setActive);
+                const activeIndex = parseInt(setActive) || 0;
                 spellbook.ActivePrepList = activeIndex;
+
+                reloadCacheFor.push(CacheOptions.Prepared);
+                reloadCacheFor.push(CacheOptions.Spells);
+                reloadCacheFor.push(CacheOptions.PrepLists);
             } else if (removePrepList) {
                 if (confirm !== 'Yes') {
                     return;
                 }
-                const spellbook = state.SpellMaster[bookName];
                 const prepIdToRemove = parseInt(removePrepList);
                 if (spellbook.ActivePrepList == prepIdToRemove) {
-                    sendChat(scname, `/w ${msg.who} Cannot remove currently-active preparation list.`);
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Cannot remove currently-active preparation list.`);
                     return;
                 }
                 spellbook.PreparationLists.splice(parseInt(removePrepList), 1);
+                
+                reloadCacheFor.push(CacheOptions.PrepLists);
             } else if (renamePrepList) {
-                const spellbook = state.SpellMaster[bookName];
                 const prepIdToRename = parseInt(renamePrepList);
 
                 // Make sure not empty string
                 if (paramValue.length === 0) {
-                    sendChat(scname, `/w ${msg.who} Cannot set name to empty string.`);
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Cannot set name to empty string.`);
                     return;
                 }
 
                 // Names must be exclusive
                 for (let i = 0; i < spellbook.PreparationLists.length; i++) {
                     if (spellbook.PreparationLists[i].Name === paramValue && i !== prepIdToRename) {
-                        sendChat(scname, `/w ${msg.who} Name already exists.`);
+                        sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Name already exists.`);
                         return;
                     }
                 }
 
                 spellbook.PreparationLists[prepIdToRename].Name = paramValue;
+
+                reloadCacheFor.push(CacheOptions.PrepLists);
             } else if (castSpell) {
-                const spellbook = state.SpellMaster[bookName];
                 const spell = SpellDict[castSpell];
                 const level = parseInt(paramValue);
                 log(spellbook.Owner + ' is casting ' + spell.Name + ' with level ' + level);
                 if (spellbook.CurSlots[level-1] === 0 && level === 0) {
-                    sendChat(scname, `/w ${msg.who} Unable to cast spell from expended slot level.`);
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Unable to cast spell from expended slot level.`);
                     return;
                 }
                 let instance = false;
@@ -868,71 +1079,95 @@ on('ready', () => {
                     let curInstance = spellbook.KnownSpells[i];
                     if (curInstance.Name === castSpell) {
                         instance = curInstance;
-                        log('Instance found at ' + i);
                         break;
                     }
                 }
                 if (!instance) {
-                    sendChat(scname, `/w ${msg.who} Instance does not exist.`);
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Instance does not exist.`);
                     return;
                 }
                 if(level > 0 && spellbook.CurSlots[level-1] < 1) {
-                    sendChat(scname, `/w ${msg.who} Spell slots of that level are exhausted.`);
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Spell slots of that level are exhausted.`);
                     return;
                 }
                 PrintSpell(spellbook, instance, spell, level, msg);
                 if(level > 0) {
                     spellbook.CurSlots[level-1]--;
                 }
+
+                reloadCacheFor.push(CacheOptions.Spells);
             } else if (setSlots) {
-                const spellbook = state.SpellMaster[bookName];
                 if (setSlots === 'Full') {
                     for(let i = 0; i < spellbook.CurSlots.length; i++) {
                         spellbook.CurSlots[i] = spellbook.MaxSlots[i];
                     }
                 }
+                reloadCacheFor.push(CacheOptions.Spells);
             }
             
             // Filtration
             else if (paramName === 'V') {
-                const spellbook = state.SpellMaster[bookName];
                 spellbook.Filter.V = parseInt(paramValue);
+                reloadCacheFor.push(CacheOptions.Spells);
+                reloadCacheFor.push(CacheOptions.Filtering);
             } else if (paramName === 'S') {
-                const spellbook = state.SpellMaster[bookName];
                 spellbook.Filter.S = parseInt(paramValue);
+                reloadCacheFor.push(CacheOptions.Spells);
+                reloadCacheFor.push(CacheOptions.Filtering);
             } else if (paramName === 'M') {
-                const spellbook = state.SpellMaster[bookName];
                 spellbook.Filter.M = parseInt(paramValue);
+                reloadCacheFor.push(CacheOptions.Spells);
+                reloadCacheFor.push(CacheOptions.Filtering);
             } else if (paramName === 'Ritual') {
-                const spellbook = state.SpellMaster[bookName];
                 spellbook.Filter.Ritual = parseInt(paramValue);
+                reloadCacheFor.push(CacheOptions.Spells);
+                reloadCacheFor.push(CacheOptions.Filtering);
             } else if (paramName === 'Slots') {
-                const spellbook = state.SpellMaster[bookName];
                 spellbook.Filter.Slots = parseInt(paramValue);
+                reloadCacheFor.push(CacheOptions.Spells);
+                reloadCacheFor.push(CacheOptions.Filtering);
             } else if (paramName === 'Concentration') {
-                const spellbook = state.SpellMaster[bookName];
                 spellbook.Filter.Concentration = parseInt(paramValue);
+                reloadCacheFor.push(CacheOptions.Spells);
+                reloadCacheFor.push(CacheOptions.Filtering);
             } else if (paramName === 'Prepared') {
-                const spellbook = state.SpellMaster[bookName];
                 spellbook.Filter.Prepared = parseInt(paramValue);
+                reloadCacheFor.push(CacheOptions.Spells);
+                reloadCacheFor.push(CacheOptions.Filtering);
             } else if (paramName === 'Search') {
-                const spellbook = state.SpellMaster[bookName];
                 spellbook.Filter.Search = paramValue;
+                reloadCacheFor.push(CacheOptions.Spells);
+                reloadCacheFor.push(CacheOptions.Filtering);
             }
 
-            PrintSpellbook(state.SpellMaster[bookName]);
+            PrintSpellbook(BookDict[bookName], reloadCacheFor);
             return;
         }
 
         // Remove existing book
-        // !SpellMaster --DeleteBook "Tazeka's Spellbook"
+        // !SpellMaster --DeleteBook ^Tazeka's Spellbook^ --Confirm ^Yes^
+        const deleteBookTag = '--DeleteBook';
+        if (argWords.includes(deleteBookTag)) {
+            const bookToDelete = GetParamValue(argParams, 'DeleteBook');
+            const confirm = GetParamValue(argParams, 'Confirm');
+            const spellbook = BookDict[bookToDelete];
+            if (!spellbook) {
+                sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" No such spellbook as ${bookToDelete} exists`);
+                return;
+            }
+            if (confirm === 'Yes') {
+                delete BookDict[bookToDelete];
+                GetHandout(spellbook.Handout).set('notes', '');
+                sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Spellbook deleted.`);
+            }
+        }
     });
 
     // Perform garbage collection on orphaned spellbooks
     const PurgeOldSpellbooks = () => {
         // This won't clean up *instantly* but this runs every time, so this will anneal state over time
-        for (let bookName in state.SpellMaster) {
-            const book = state.SpellMaster[bookName];
+        for (let bookName in BookDict) {
+            const book = BookDict[bookName];
             // Don't accidentally delete any non-spellbook properties
             if (book.IsSpellbook) {
                 // Attempt to get the handout.
@@ -940,7 +1175,7 @@ on('ready', () => {
                 // If it's dead, delete it because the user destroyed it.
                 if (handout === null) {
                     log("WARNING: SpellMaster detected orphan book to be delted: " + bookName);
-                    delete state.SpellMaster[bookName];
+                    delete BookDict[bookName];
                     break;
                 }
             }
