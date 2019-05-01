@@ -19,6 +19,9 @@ import com.google.gson.*;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 
+import java.util.Arrays;
+import java.util.Collections;
+
 public class Parser {
     public String ExciseString(String src, String leftTag, String rightTag){
         String trimmedSrc = src.trim();
@@ -195,20 +198,30 @@ public class Parser {
     }
     
     public Parser() {
-        String rawFolder = "D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\SpellHTML";
-        String[] rawFiles = (new File(rawFolder)).list();
-        System.out.println("Raw Spell Files Count: " + rawFiles.length);
         Gson gson = new Gson();
+        String[] srdSpellNames = new String[0];
+        Charset charset = Charset.forName("UTF-8");
+        try {
+            Path path = new File("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\SRD\\SRD.txt").toPath();
+            Object[]objAr = Files.readAllLines(path, charset).toArray();
+            srdSpellNames = Arrays.copyOf(objAr, objAr.length, String[].class);
+            System.out.println("SRD Spell Names: " + srdSpellNames.length);
+        } catch (Exception e) {
+            System.err.println("Exception: " + e.toString());
+        }
+        
         ArrayList<Spell> spells = new ArrayList<Spell>();
         
         // Create Raw spells
         try {
+            String rawFolder = "D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\SpellHTML";
+            String[] rawFiles = (new File(rawFolder)).list();
+            System.out.println("Raw Spell Files Count: " + rawFiles.length);
             PrintWriter pw = new PrintWriter("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\rawSpells.json");
             pw.println("[");
             for(String file : rawFiles) {
                 //System.out.println("Parsing " + file);
                 Path path = Paths.get(rawFolder, file);
-                Charset charset = Charset.forName("ISO-8859-1");
                 
                 Object[] lines = null;
                 try {
@@ -236,17 +249,18 @@ public class Parser {
 
         System.out.println("Spells Ready for Homebrew Count: " + spells.size());
         
-        String homebrewFolder = "D:/Dropbox/Public/D&D/Tools/API Scripts/SpellMaster/Spellbook/SpellParser/SpellParser/src/SpellHomebrew";
-        String[] homebrewFiles = (new File(homebrewFolder)).list();
+        // Sort for legibility
+        Collections.sort(spells);        
         
-        // Create Homebrew spells
-        try {
+        // Create Homebrew spells and override same-named raw spells
+        try {        
+            String homebrewFolder = "D:/Dropbox/Public/D&D/Tools/API Scripts/SpellMaster/Spellbook/SpellParser/SpellParser/src/SpellHomebrew";
+            String[] homebrewFiles = (new File(homebrewFolder)).list();
             PrintWriter homebrewPW = new PrintWriter("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\homebrewSpells.json");
             homebrewPW.println("[");
             
             for(String file : homebrewFiles) {
                 Path path = Paths.get(homebrewFolder, file);
-                Charset charset = Charset.forName("ISO-8859-1");
                 
                 Object[] lines = null;
                 try {
@@ -294,7 +308,21 @@ public class Parser {
         } catch (FileNotFoundException e) {
         }
 
+        for(int i = 0; i < spells.size(); i++) {
+            Spell spell = spells.get(i);
+            for(int j = 0; j < srdSpellNames.length; j++) {
+                String srdSpellName = srdSpellNames[j].trim();
+                if(spell.Name.equals(srdSpellName)) {
+                    spell.Classes = spell.Classes + ", SRD";
+                    break;
+                }
+            }
+        }
+
         System.out.println("Spells Ready for Merge Count: " + spells.size());
+        
+        // Sort for legibility
+        Collections.sort(spells);
         
         // Merged JSON
         try {

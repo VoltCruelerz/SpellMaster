@@ -173,6 +173,8 @@ on('ready', () => {
         CasterTypeMap['Warlock'] = CasterMode.Pact;
         CasterTypeMap['Wizard'] = CasterMode.Full;
         CasterTypeMap[null] = CasterMode.None;
+        CasterTypeMap['undefined'] = CasterMode.None;
+        CasterTypeMap['SRD'] = CasterMode.Full;
     };
     MapCasterTypes();
 

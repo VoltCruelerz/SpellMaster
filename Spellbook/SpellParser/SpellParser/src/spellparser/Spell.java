@@ -1,6 +1,6 @@
 package spellparser;
 
-public class Spell {
+public class Spell implements Comparable<Spell>{
     public String Name = "";
     public int Level = -1;
     public String School = "";
@@ -58,5 +58,13 @@ public class Spell {
         str = str + tab + tab + "Classes: " + quote + Classes + quote + newLine;
         str = str + tab + "}";
         return str;
+    }
+    
+    public int compareTo(Spell o) {
+        int diff = this.Level - o.Level;
+        if(diff == 0){
+            return this.Name.compareTo(o.Name);
+        }
+        return diff;
     }
 }
