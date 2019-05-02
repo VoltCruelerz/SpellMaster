@@ -12,6 +12,13 @@ on('ready', () => {
     const chatTrigger = '!SpellMaster';// This is the trigger that makes the script listen
     const scname = 'SpellMaster';// How this script shows up when it sends chat messages
     const maxSpellLevel = 10;// My campaign has a few NPCs with 10th-level magic
+    const debugLog = false;
+
+    const dlog = (str) => {
+        if (debugLog) {
+            log(str);
+        }
+    }
     
     // Alias state so we don't accidentally break it.
     let BookDict = state.SpellMaster;
@@ -487,7 +494,7 @@ on('ready', () => {
             +`{{r2=${isSpellAttack ? attackRollStr : '[[0d1]]'}}}  `
             +`{{description=${descriptionFull}}}`;
 
-        log("Spell Contents: " + spellContents);
+        dlog("Spell Contents: " + spellContents);
         sendToGmAndPlayer(chatMessage, book.Owner, spellContents);
         return spellContents;
     };
@@ -502,6 +509,20 @@ on('ready', () => {
         Spells: 5,
         PrepLists: 6
     };
+
+    // Checks specified level and all levels above to see if a spell is castable
+    const HasSlotsOfAtLeastLevel = (spellbook, level) => {
+        if (level === 0) {
+            return true;
+        }
+        for (let i = level-1; i < spellbook.CurSlots.length; i++) {
+            const slotsAtLevel = spellbook.CurSlots[i];
+            if (slotsAtLevel > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     // Prints a spellbook out to its handout.
     // spellbook: the spellbook object
@@ -534,13 +555,13 @@ on('ready', () => {
         // Owner
         let ownerStr = '';
         if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Owner)) {
-            log('Rebuilding Owner');
+            dlog('Rebuilding Owner');
             let uri = `http://journal.roll20.net/character/${char.id}`;
             ownerStr += `<i>A spellbook for </i>${CreateLink(spellbook.Owner, uri)}`;
             ownerStr += '<hr>';
             cachedBook.OwnerStr = ownerStr;
         } else {
-            log('Using Cached Owner');
+            dlog('Using Cached Owner');
             ownerStr = cachedBook.OwnerStr;
         }
         text += ownerStr;
@@ -549,7 +570,7 @@ on('ready', () => {
         // Filter bar
         let filterStr = '';
         if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Filtering)) {
-            log('Rebuilding Filtering');
+            dlog('Rebuilding Filtering');
             const vFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.V]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^V^ --ParamValue ^?{Please enter the new filter option|V,${Filters.WithFlag}|No-V,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
             const sFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.S]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^S^ --ParamValue ^?{Please enter the new filter option|S,${Filters.WithFlag}|No-S,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
             const mFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.M]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^M^ --ParamValue ^?{Please enter the new filter option|M,${Filters.WithFlag}|No-M,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
@@ -561,7 +582,7 @@ on('ready', () => {
             filterStr += `<b>Filtering:</b> ${vFilter} V ${sFilter} S ${mFilter} M - ${concFilter} Concentration - ${rituFilter} Ritual - ${prepFilter} Prepared - ${slotsFilter} Slots Remaining - ${searchFilter} Search<br/>`;
             cachedBook.FilteringStr = filterStr;
         } else {
-            log('Using Cached Filtering');
+            dlog('Using Cached Filtering');
             filterStr = cachedBook.FilteringStr;
         }
         text += filterStr;
@@ -570,12 +591,12 @@ on('ready', () => {
         // Tools
         let toolsStr = '';
         if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Tools)) {
-            log('Rebuilding Tools');
+            dlog('Rebuilding Tools');
             const fillSlotsLink = CreateLink(`[Long Rest]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --SetSlots ^Full^`);
             toolsStr += `<b>Tools:</b> ${fillSlotsLink}<br/>`;
             cachedBook.ToolsStr = toolsStr;
         } else {
-            log('Using Cached Tools');
+            dlog('Using Cached Tools');
             toolsStr = cachedBook.ToolsStr;
         }
         text += toolsStr;
@@ -584,13 +605,13 @@ on('ready', () => {
         // Prepared Spell Count
         let preparedStr = '';
         if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Prepared)) {
-            log('Rebuilding Prepared');
+            dlog('Rebuilding Prepared');
             const prepString = `${activePrepList.PreparedSpells.length} ${GetMaxPreparationString(char)}`;
             preparedStr += `<b>Prepared:</b> ${prepString}<br/>`;
             preparedStr += '<hr>';
             cachedBook.PreparedStr = preparedStr;
         } else {
-            log('Using Cached Prepared');
+            dlog('Using Cached Prepared');
             preparedStr = cachedBook.PreparedStr;
         }
         text += preparedStr;
@@ -599,22 +620,35 @@ on('ready', () => {
         // Spells
         let spellStr = '';
         if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Spells)) {
-            log('Rebuilding Spells');
+            dlog('Rebuilding Spells');
+            // Perform alpha sort on known spells (in case one got added)
+            spellbook.KnownSpells.sort(Sorters.NameAlpha);
+
             spellStr += '<h2>Spells</h2>';
             spellStr += '<hr>';
             for (let i = 0; i < maxSpellLevel; i++) {
+                const hasSlotsOfAtLeastLevel = HasSlotsOfAtLeastLevel(spellbook, i);
+                if (i > 0 && ((spellbook.Filter.Slots === Filters.WithFlag && !hasSlotsOfAtLeastLevel) || (spellbook.Filter.Slots === Filters.WithoutFlag && hasSlotsOfAtLeastLevel))) {
+                    continue;
+                }
                 const curSlotLink = CreateLink(`[${spellbook.CurSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Cur^ --ParamValue ^?{Please enter the new current value for Slot Level ${i}}^`);
                 const maxSlotLink = CreateLink(`[${spellbook.MaxSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Max^ --ParamValue ^?{Please enter the new maximum value for Slot Level ${i}}^`);
                 spellStr += i > 0
                     ? `<h3>Level ${i} Spells - ${curSlotLink} / ${maxSlotLink} </h3>`
                     : `<h3>Cantrips</h3>`;
     
-                // Perform alpha sort on known spells (in case one got added)
-                spellbook.KnownSpells.sort(Sorters.NameAlpha);
-    
                 // Print all spells at current level
                 spellbook.KnownSpells.forEach((spellInstance) => {
                     const spell = SpellDict[spellInstance.Name];
+                    if (spell.Level !== i) {
+                        return;
+                    }
+    
+                    const spellIsPrepared = activePrepList.PreparedSpells.map((item) => {return item.Name;}).indexOf(spellInstance.Name) > -1;
+                    if (spell.Level !== 0 && ((spellbook.Filter.Prepared === Filters.WithFlag && !spellIsPrepared) || (spellbook.Filter.Prepared === Filters.WithoutFlag && spellIsPrepared))) {
+                        return;
+                    }
+
                     // Check filtering
                     if ((spellbook.Filter.V === Filters.WithFlag && !spell.Components.V) 
                         || (spellbook.Filter.V === Filters.WithoutFlag && spell.Components.V)) {
@@ -636,15 +670,6 @@ on('ready', () => {
                         || (spellbook.Filter.Ritual === Filters.WithoutFlag && spell.IsRitual)) {
                         return;
                     }
-                    if ((spellbook.Filter.Slots === Filters.WithFlag && (spell.Level !== 0 && !spellbook.CurSlots[spell.Level-1])) 
-                        || (spellbook.Filter.Slots === Filters.WithoutFlag && !(spell.Level !== 0 && !spellbook.CurSlots[spell.Level-1]))) {
-                        return;
-                    }
-    
-                    const spellIsPrepared = activePrepList.PreparedSpells.map((item) => {return item.Name;}).indexOf(spellInstance.Name) > -1;
-                    if (spell.Level !== 0 && ((spellbook.Filter.Prepared === Filters.WithFlag && !spellIsPrepared) || (spellbook.Filter.Prepared === Filters.WithoutFlag && spellIsPrepared))) {
-                        return;
-                    }
     
                     if (spellbook.Filter.Search.length > 0 
                         && !(spell.Name.includes(spellbook.Filter.Search) 
@@ -656,61 +681,70 @@ on('ready', () => {
                             || spell.Classes.includes(spellbook.Filter.Search))) {
                         return;
                     }
-    
-                    // Verify correct level
-                    if (spell.Level === i) {
-                        // Create the preparation button.
-                        let prepButton = '';
-                        if (spellInstance.Lock) {
-                            prepButton = '[O]';
-                        } else {
-                            prepButton = spellIsPrepared
-                                ? CreateLink('[X]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^False^`)
-                                : CreateLink('[_]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^True^`);
-                        }
-                        // Cantrips are always prepared
-                        prepButton = spell.Level === 0
-                            ? '[X]'
-                            : prepButton;
-    
-                        let tagStr = "";
-                        tagStr += spell.IsRitual ? " (R)" : "";
-                        tagStr += spell.Duration.toLowerCase().includes('concentration') ? " (C)" : "";
-    
-                        const expandedText = spellInstance.IsExpanded 
-                            ? CreateLink('[-]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Expanded^ --ParamValue ^False^`)
-                            : CreateLink('[+]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Expanded^ --ParamValue ^True^`);
-    
-                        // Generate upcast string
-                        let canUpcast = false;
-                        let levelString = spell.Level;
-                        if (spell.Level > 0) {
-                            let upcastOptions = "";
-                            for(let j = spell.Level-1; j < maxSpellLevel; j++) {
-                                if (spellbook.CurSlots[j] > 0) {
-                                    upcastOptions += `|${j+1}`;
-                                    if (j >= spell.Level) {
-                                        canUpcast = true;
-                                    }
+                    
+                    // Create the preparation button.
+                    let prepButton = '';
+                    if (spellInstance.Lock) {
+                        prepButton = '[O]';
+                    } else {
+                        prepButton = spellIsPrepared
+                            ? CreateLink('[X]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^False^`)
+                            : CreateLink('[_]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Prepared^ --ParamValue ^True^`);
+                    }
+                    // Cantrips are always prepared
+                    prepButton = spell.Level === 0
+                        ? '[X]'
+                        : prepButton;
+
+                    let tagStr = "";
+                    tagStr += spell.IsRitual ? " (R)" : "";
+                    tagStr += spell.Duration.toLowerCase().includes('concentration') ? " (C)" : "";
+
+                    const expandedText = spellInstance.IsExpanded 
+                        ? CreateLink('[-]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Expanded^ --ParamValue ^False^`)
+                        : CreateLink('[+]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Expanded^ --ParamValue ^True^`);
+
+                    // Generate upcast string
+                    let canUpcast = false;
+                    let levelString = spell.Level;
+                    if (spell.Level > 0) {// Ignore cantrips
+                        let upcastOptions = "";
+                        // Start at current level and scale up, recording all that have valid options
+                        for(let j = spell.Level-1; j < maxSpellLevel; j++) {
+                            // If the spell level has slots or the individual spell instance has slots, mark it
+                            if (spellbook.CurSlots[j] > 0 || (spell.Level-1 === j && spellInstance.CurSlots > 0)) {
+                                upcastOptions += `|${j+1}`;
+                                if (j >= spell.Level) {
+                                    canUpcast = true;
                                 }
                             }
-                            if (canUpcast) {
-                                levelString = `?{Select the level at which to cast ${spell.Name}${upcastOptions}}`;
-                            }
                         }
-    
-                        const castLink = CreateLink(spell.Name, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --CastSpell ^${spellInstance.Name}^ --ParamName ^Level^ --ParamValue ^${levelString}^`);
-    
-                        spellStr += `<h4>${prepButton} ${castLink}${tagStr} ${expandedText}</h4>`;
-                        if (spellInstance.IsExpanded) {
-                            spellStr += hr;
-                            spellStr += GetSpellDetails(spellbook, spellInstance, spell, true);
-                            spellStr += br;
-                            spellStr += CreateLink('[Delete]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^?{Type Yes to delete ${spell.Name}}^`);
-                            spellStr += ' - ';
-                            spellStr += CreateLink('[Lock]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Lock^ --ParamValue ^${spellInstance.Lock ? 'False' : 'True'}^`);
-                            spellStr += hr;
+                        if (canUpcast) {
+                            levelString = `?{Select the level at which to cast ${spell.Name}${upcastOptions}}`;
                         }
+                    }
+
+                    const castLink = CreateLink(spell.Name, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --CastSpell ^${spellInstance.Name}^ --ParamName ^Level^ --ParamValue ^${levelString}^`);
+                    const indiCur = CreateLink(`[${spellInstance.CurSlots}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^CurSlots^ --ParamValue ^?{Please type the new current slots for ${spell.Name}}^`);
+                    const indiMax = CreateLink(`[${spellInstance.MaxSlots}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^MaxSlots^ --ParamValue ^?{Please type the new maximum slots for ${spell.Name}}^`);
+                    let titleSlotDisplayStr = '';
+                    let innerSlotDisplayStr = '';
+                    if (spellInstance.CurSlots > 0 || spellInstance.MaxSlots > 0) {
+                        titleSlotDisplayStr = ` - ${indiCur} / ${indiMax}`;
+                    } else {
+                        innerSlotDisplayStr = `<b>${indiCur} / ${indiMax}</b>`;
+                    }
+
+                    spellStr += `<h4>${prepButton} ${castLink}${tagStr}${titleSlotDisplayStr} - ${expandedText}</h4>`;
+                    if (spellInstance.IsExpanded) {
+                        spellStr += innerSlotDisplayStr;
+                        spellStr += hr;
+                        spellStr += GetSpellDetails(spellbook, spellInstance, spell, true);
+                        spellStr += br;
+                        spellStr += CreateLink('[Delete]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^?{Type Yes to delete ${spell.Name}}^`);
+                        spellStr += ' - ';
+                        spellStr += CreateLink('[Lock]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Lock^ --ParamValue ^${spellInstance.Lock ? 'False' : 'True'}^`);
+                        spellStr += hr;
                     }
                 });
                 spellStr += br;
@@ -719,7 +753,7 @@ on('ready', () => {
             }
             cachedBook.SpellsStr = spellStr;
         } else {
-            log('Using Cached Spells');
+            dlog('Using Cached Spells');
             spellStr = cachedBook.SpellsStr;
         }
         text += spellStr;
@@ -729,7 +763,7 @@ on('ready', () => {
         // Preparation Tabs
         let prepListStr = '';
         if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.PrepLists)) {
-            log('Rebuilding Prep Lists');
+            dlog('Rebuilding Prep Lists');
             prepListStr += '<h2>Preparation Lists</h2>';
             for (let i = 0; i < spellbook.PreparationLists.length; i++) {
                 const curList = spellbook.PreparationLists[i];
@@ -746,7 +780,7 @@ on('ready', () => {
             prepListStr += CreateLink(`<b>[+]</b>`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --AddPrepList ^?{Please enter the new preparation list name below.}^`);
             cachedBook.PrepListsStr = prepListStr;
         } else {
-            log('Using Cached Prep List');
+            dlog('Using Cached Prep List');
             prepListStr = cachedBook.PrepListsStr;
         }
         text += prepListStr;
@@ -827,7 +861,9 @@ on('ready', () => {
                             IsExpanded: false,
                             Stat: stat,
                             Lock: false,
-                            Notes: ''
+                            Notes: '',
+                            CurSlots: 0,
+                            MaxSlots: 0
                         });
                     }
                 }
@@ -926,7 +962,9 @@ on('ready', () => {
                     IsExpanded: false,
                     Stat: BookDict[bookName].Stat,
                     Lock: false,
-                    Notes: ''
+                    Notes: '',
+                    CurSlots: 0,
+                    MaxSlots: 0
                 });
                 reloadCacheFor.push(CacheOptions.Spells);
             } else if (removeSpell) {
@@ -1057,9 +1095,29 @@ on('ready', () => {
                     reloadCacheFor.push(CacheOptions.Prepared);
                     reloadCacheFor.push(CacheOptions.PrepLists);
                     reloadCacheFor.push(CacheOptions.Spells);
+                } else if (paramName === 'CurSlots') {
+                    const newVal = parseInt(paramValue) || 0;
+                    for (let i = 0; i < spellbook.KnownSpells.length; i++) {
+                        const knownSpell = spellbook.KnownSpells[i];
+                        if (knownSpell.Name === updateSpell) {
+                            knownSpell.CurSlots = newVal;
+                            break;
+                        }
+                    }
+                    reloadCacheFor.push(CacheOptions.Spells);
+                } else if (paramName === 'MaxSlots') {
+                    const newVal = parseInt(paramValue) || 0;
+                    for (let i = 0; i < spellbook.KnownSpells.length; i++) {
+                        const knownSpell = spellbook.KnownSpells[i];
+                        if (knownSpell.Name === updateSpell) {
+                            knownSpell.MaxSlots = newVal;
+                            break;
+                        }
+                    }
+                    reloadCacheFor.push(CacheOptions.Spells);
                 }
             } else if (updateSlot) {
-                const slotIndex = parseInt(updateSlot)-1;
+                const slotIndex = (parseInt(updateSlot) || 0) - 1;
                 const newVal = parseInt(paramValue);
                 if (paramName === 'Max') {
                     spellbook.MaxSlots[slotIndex] = newVal;
@@ -1122,8 +1180,12 @@ on('ready', () => {
                 reloadCacheFor.push(CacheOptions.PrepLists);
             } else if (castSpell) {
                 const spell = SpellDict[castSpell];
-                const level = parseInt(paramValue);
-                log(spellbook.Owner + ' is casting ' + spell.Name + ' with level ' + level);
+                dlog(spellbook.Owner + ' is casting ' + spell.Name + ' with level ' + paramValue);
+                const level = parseInt(paramValue) || -1;
+                if (level < 0 || level < spell.Level) {
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Invalid cast level ${paramValue}.`);
+                    return;
+                }
                 if (spellbook.CurSlots[level-1] === 0 && level === 0) {
                     sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Unable to cast spell from expended slot level.`);
                     return;
@@ -1140,20 +1202,33 @@ on('ready', () => {
                     sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Instance does not exist.`);
                     return;
                 }
-                if(level > 0 && spellbook.CurSlots[level-1] < 1) {
+                dlog(`Available slots: Individual=${instance.CurSlots} - Global=${spellbook.CurSlots[level-1]}`);
+                if(level > 0 && instance.CurSlots < 1 && spellbook.CurSlots[level-1] < 1) {
                     sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Spell slots of that level are exhausted.`);
                     return;
                 }
                 PrintSpell(spellbook, instance, spell, level, msg);
                 if(level > 0) {
-                    spellbook.CurSlots[level-1]--;
+                    // Attempt to cast from per-spell slots first since they sometimes recharge faster, but only if casting at base level
+                    if (instance.CurSlots > 0 && spell.Level === level) {
+                        instance.CurSlots--;
+                    } else {
+                        spellbook.CurSlots[level-1]--;
+                    }
                 }
 
                 reloadCacheFor.push(CacheOptions.Spells);
             } else if (setSlots) {
                 if (setSlots === 'Full') {
+                    // Refill spell level slots
                     for(let i = 0; i < spellbook.CurSlots.length; i++) {
                         spellbook.CurSlots[i] = spellbook.MaxSlots[i];
+                    }
+
+                    // Refill class/other feature slots
+                    for (let i = 0; i < spellbook.KnownSpells.length; i++) {
+                        const knownSpell = spellbook.KnownSpells[i];
+                        knownSpell.CurSlots = knownSpell.MaxSlots;
                     }
                 }
                 reloadCacheFor.push(CacheOptions.Spells);
