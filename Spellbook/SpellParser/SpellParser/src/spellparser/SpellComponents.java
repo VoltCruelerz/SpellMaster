@@ -14,14 +14,14 @@ public class SpellComponents {
                 V = true;
             } else if(component.toUpperCase().equals("S")){
                 S = true;
-            } else if(component.toUpperCase().indexOf("M") == 0){
+            } else if(component.toUpperCase().startsWith("M")){
                 M = true;
-                String mDetailsTag = "M (";
-                if(rawComponents.indexOf(mDetailsTag) != -1){
-                    MDetails = component.substring(mDetailsTag.length());
-                    MDetails = MDetails.replace(")","").replace("(","").trim();
-                }
             }
+        }
+        
+        int mDetailsIndex = rawComponents.indexOf("(");
+        if(mDetailsIndex > -1) {
+            MDetails = rawComponents.substring(mDetailsIndex).replace("(","").replace(")","").trim();
         }
     }
     
