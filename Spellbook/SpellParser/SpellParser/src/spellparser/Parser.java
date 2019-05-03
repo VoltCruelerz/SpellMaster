@@ -176,9 +176,7 @@ public class Parser {
                 castTime = ((String)lines[i+2]).substring(castTag.length());
                 if(castTime.indexOf(" Ritual") != -1){
                     castTime = castTime.substring(0, castTime.length() - " Ritual".length());
-                }
-                else if(castTime.indexOf(" (R)") != -1){
-                    castTime = castTime.substring(0, castTime.length() - " (R)".length());
+                    isRitual = true;
                 }
                 //System.out.println("Cast Time: " + castTime);
                 //System.out.println("Is Ritual: " + isRitual);
