@@ -462,7 +462,7 @@ on('ready', () => {
             let suffix = '';
             
             if (level > 0) {
-                if (offset > upcastIndex) {
+                if (offset > upcastIndex && upcastIndex !== -1) {
                     levelScalar = level - spell.Level;
                     prefix = match + ' (for a total of ';
                     suffix = ')';
