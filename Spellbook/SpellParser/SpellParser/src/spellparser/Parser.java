@@ -24,13 +24,20 @@ import java.util.Collections;
 
 public class Parser {
     public String ExciseString(String src, String leftTag, String rightTag){
-        String trimmedSrc = src.trim();
-        //System.out.println("SRC: " + src);
-        String noLeft = trimmedSrc.substring(trimmedSrc.indexOf(leftTag) + leftTag.length()).trim();
-        //System.out.println("  Noleft: " + noLeft);
-        //System.out.println("  L: " + leftTag);
-        //System.out.println("  R: " + rightTag);
-        return noLeft.substring(0, noLeft.indexOf(rightTag)).trim();
+        try{
+            String trimmedSrc = src.trim();
+            int leftIndex = trimmedSrc.indexOf(leftTag);
+            String noLeft = trimmedSrc.substring(leftIndex + leftTag.length()).trim();
+            //System.out.println("  Noleft: " + noLeft);
+            int rightIndex = noLeft.indexOf(rightTag);
+            return noLeft.substring(0, rightIndex).trim();
+        }
+        catch(Exception e){
+            System.out.println("SRC: " + src);
+            System.out.println("  L: " + leftTag);
+            System.out.println("  R: " + rightTag);
+            throw e;
+        }
     }
     
     public Spell ParseRawSpellFile(Object[] lines){
@@ -67,6 +74,7 @@ public class Parser {
         for(int i = 0; i < lines.length; i++){
             String line = (String)lines[i];
             line = line.trim();
+            line = line.replace("&rsquo;", "'");// Get rid of bad quotes -_-
             // Name
             if(line.indexOf(titleStartTag) == 0){
                 name = ExciseString(line, titleStartTag, titleEndTag);
@@ -155,9 +163,13 @@ public class Parser {
         for(int i = 0; i < lines.length; i++){
             try{
                 String line = (String)lines[i];
+                if (line.indexOf("Level ") == 0 || line.indexOf("Cantrips") == 0 || line.trim().length() == 0) {
+                    continue;
+                }
                 name = ExciseString(line, "] ", " [");
                 //System.out.println("Name: " + name);
-                level = Integer.parseInt(ExciseString(line, "[", "]"));
+                String excisedLevelString = ExciseString(line, "[", "]");
+                level = Integer.parseInt(excisedLevelString);
                 //System.out.println("Level: " + level);
                 school = ((String)lines[i+1]).substring(schoolTag.length());
                 //System.out.println("School: " + school);
@@ -184,13 +196,18 @@ public class Parser {
                         classes = descLine.substring(schoolTag.length());
                         i=j;
                         break;
+                    } else if(level == 0 && (descLine.startsWith("5th: ") || descLine.startsWith("11th: ") || descLine.startsWith("17th: "))){
+                        descLine = "- " + descLine;
                     }
                     desc = desc + "\n" + descLine;
                 }
                 
-                retVal.add(new Spell(name, level, school, isRitual, castTime, range, components, duration, ability, desc, classes));
+                Spell spell = new Spell(name, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
+                retVal.add(spell);
             } catch (Exception e){
-                System.out.println("WARNING! Skipping " + name + " Line " + i + ": " + (String)lines[i]);
+                System.err.println("WARNING! Skipping " + name + " Line " + i + ": " + (String)lines[i]);
+                System.err.println("  " + e.getMessage());
+                e.printStackTrace();
             }
         }
         
@@ -227,7 +244,7 @@ public class Parser {
                 try {
                     lines = Files.readAllLines(path, charset).toArray();
                 } catch (IOException e) {
-                    System.err.println("Exception: " + e.toString());
+                    System.err.println("IO Error: " + e.toString());
                 }
                 
                 Spell spell = ParseRawSpellFile(lines);
@@ -254,7 +271,7 @@ public class Parser {
         
         // Create Homebrew spells and override same-named raw spells
         try {        
-            String homebrewFolder = "D:/Dropbox/Public/D&D/Tools/API Scripts/SpellMaster/Spellbook/SpellParser/SpellParser/src/SpellHomebrew";
+            String homebrewFolder = "D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\SpellHomebrew";
             String[] homebrewFiles = (new File(homebrewFolder)).list();
             PrintWriter homebrewPW = new PrintWriter("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\homebrewSpells.json");
             homebrewPW.println("[");
@@ -266,6 +283,7 @@ public class Parser {
                 try {
                     lines = Files.readAllLines(path, charset).toArray();
                 } catch (IOException e) {
+                    System.err.println("IO Error: " + e.toString());
                 }
                 
                 ArrayList<Spell> houseSpells = ParseHouseSpellFile(lines);
@@ -306,6 +324,7 @@ public class Parser {
             homebrewPW.println("]");
             homebrewPW.flush();
         } catch (FileNotFoundException e) {
+            System.err.println("Exception: " + e.toString());
         }
 
         for(int i = 0; i < spells.size(); i++) {
@@ -369,7 +388,7 @@ public class Parser {
             jsPW.println("if (typeof MarkStop != 'undefined') MarkStop('SpellList');");
             jsPW.flush();
         } catch(Exception e){
-            System.err.println(e);
+            System.err.println("Exception: " + e.toString());
         }
     }
 

@@ -19,6 +19,12 @@ on('ready', () => {
             log(str);
         }
     }
+
+    const flog = (str, errorCode) => {
+        log('SPELL MASTER FATAL ERROR CODE ' + errorCode + ' = ' + str);
+        log('DUMPING STATE.SPELLMASTER');
+        log(JSON.stringify(state.SpellMaster));
+    }
     
     // Alias state so we don't accidentally break it.
     let BookDict = state.SpellMaster;
@@ -416,17 +422,17 @@ on('ready', () => {
             .replace("Higher level:", "HLCODE")
             .replace("At higher level:", "HLCODE")
             .replace("HLCODE", '<b>- Higher Levels:</b>');
-        text += `- <b>Description:</b> ${descStr}<br/>`;
+        text += `<b>- Description:</b> ${descStr}<br/>`;
         if(createLinks) {
             const abilityLink = CreateLink('Ability:', `!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^Ability^ --ParamValue ^?{Please select the ability to use when casting this spell.|Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma}^`);
-            text += `- <b>${abilityLink}</b> ${instance.Stat}<br/>`;
+            text += `<b>- ${abilityLink}</b> ${instance.Stat}<br/>`;
             const notesLink = CreateLink('Notes:',`!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^Notes^ --ParamValue ^?{Please type the new notes section.  You may want to type outside this window and paste for longer messages.  Use html br tag for line breaks.}^`);
-            text += `- <b>${notesLink}</b> ${instance.Notes}<br/>`;
+            text += `<b>- ${notesLink}</b> ${instance.Notes}<br/>`;
         } else {
-            text += `- <b>Ability:</b> ${instance.Stat}<br/>`;
-            text += `- <b>Notes:</b> ${instance.Notes}<br/>`;
+            text += `<b>- Ability:</b> ${instance.Stat}<br/>`;
+            text += `<b>- Notes:</b> ${instance.Notes}<br/>`;
         }
-        text += `- <b>Classes:</b> ${spell.Classes}<br/>`;
+        text += `<b>- Classes:</b> ${spell.Classes}<br/>`;
 
         return text;
     };
@@ -640,11 +646,18 @@ on('ready', () => {
                 // Print all spells at current level
                 spellbook.KnownSpells.forEach((spellInstance) => {
                     const spell = SpellDict[spellInstance.Name];
+                    if (!spell) {
+                        sendChat(scname, `ERROR: No such spell ${spellInstance.Name} exists!  This is likely due to a spell rename.  Please use '!SpellMaster --Menu' to manually delete the offending spell.  In the event this does not resolve it, please contact the script author.  state.SpellMaster is being dumped to the logs.`);
+                        flog(`Spell ${spellInstance.Name} does not exist.`, 0);
+                        return;
+                    }
                     if (spell.Level !== i) {
                         return;
                     }
     
-                    const spellIsPrepared = activePrepList.PreparedSpells.map((item) => {return item.Name;}).indexOf(spellInstance.Name) > -1;
+                    const spellIsPrepared = activePrepList.PreparedSpells.map((item) => {return item.Name;}).indexOf(spellInstance.Name) > -1
+                        || spell.Level === 0
+                        || spellInstance.Lock;
                     if (spell.Level !== 0 && ((spellbook.Filter.Prepared === Filters.WithFlag && !spellIsPrepared) || (spellbook.Filter.Prepared === Filters.WithoutFlag && spellIsPrepared))) {
                         return;
                     }
@@ -814,7 +827,8 @@ on('ready', () => {
                     + `--Stat ^?{Please list their primary spellcasting ability.|Intelligence|Wisdom|Charisma}^ `
                     + `--ImportClass ^?{Please select a spell list to import in its entirety.  Only recommended for Cleric and Druid.|Artificer|Bard|Cleric|Druid|Paladin|Ranger|Shaman|Warlock|Wizard|None}^ `
                     + `--Level ^?{Please input their total spell-caster level.  Do not count pact magic levels.}^)<br/>`
-                + `[Delete Spellbook](!SpellMaster --DeleteBook ^?{Please type the name of the spellbook to delete.}^ --Confirm ^?{Please type Yes to confirm}^)`
+                + `[Delete Spellbook](!SpellMaster --DeleteBook ^?{Please type the name of the spellbook to delete.}^ --Confirm ^?{Please type Yes to confirm}^)<br/>`
+                + `[Delete Spell](!SpellMaster --UpdateBook ^?{Spellbook Name}^ --RemoveSpell ^?{Spell Name}^ --Confirm ^?{Type Yes to confirm deletion of this spell from this spell list.}^)`
                 + `}}`;
             log('Menu: ' + menu);
             sendChat(scname, menu);
@@ -956,6 +970,13 @@ on('ready', () => {
                 if (!spell) {
                     sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Invalid spell name to import: ${importSpell}`);
                     return;
+                }
+                for (let i = 0; i < spellbook.KnownSpells.length; i++) {
+                    const knownSpell = spellbook.KnownSpells[i];
+                    if (knownSpell.Name === importSpell) {
+                        sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ${importSpell} cannot be imported as it is already in your list!`);
+                        return;
+                    }
                 }
                 BookDict[bookName].KnownSpells.push({
                     Name: spell.Name,
@@ -1180,8 +1201,8 @@ on('ready', () => {
                 reloadCacheFor.push(CacheOptions.PrepLists);
             } else if (castSpell) {
                 const spell = SpellDict[castSpell];
-                dlog(spellbook.Owner + ' is casting ' + spell.Name + ' with level ' + paramValue);
-                const level = parseInt(paramValue) || -1;
+                dlog(spellbook.Owner + ' is casting ' + spell.Name + ' with level ' + paramValue + ' when base spell level is ' + spell.Level);
+                const level = parseInt(paramValue) || 0;
                 if (level < 0 || level < spell.Level) {
                     sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Invalid cast level ${paramValue}.`);
                     return;
