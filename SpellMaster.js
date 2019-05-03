@@ -377,7 +377,7 @@ on('ready', () => {
                 prepString += `/ ${classLevel + statMod} (${className}) `;
             } else if (className === 'Warlock' || className === 'Witch') {
                 const spellsKnownAtLevel = [2,3,4,5,6,7,8,9,10,10,11,11,12,12,13,13,14,14,15,15];
-                let maxKnown = spellsKnownAtLevel[classLevel];
+                let maxKnown = spellsKnownAtLevel[classLevel-1];
                 maxKnown += classLevel >= 11 ? 1 : 0;// Mystic Arcanum L6
                 maxKnown += classLevel >= 13 ? 1 : 0;// Mystic Arcanum L7
                 maxKnown += classLevel >= 15 ? 1 : 0;// Mystic Arcanum L8
@@ -386,7 +386,7 @@ on('ready', () => {
                 prepString += `/ ${maxKnown} (${className}) `;
             } else if (className === 'Sorcerer') {
                 const spellsKnownAtLevel = [2,3,4,5,6,7,8,9,10,11,12,12,13,13,14,14,15,15,15,15];
-                let maxKnown = spellsKnownAtLevel[classLevel];
+                let maxKnown = spellsKnownAtLevel[classLevel-1];
                 const statMod = parseInt(getattr(char.id, 'charisma_mod')) || 0;
                 prepString += `/ ${maxKnown} (${className}) `;
             } else if (className === 'Paladin') {
@@ -394,7 +394,7 @@ on('ready', () => {
                 prepString += `/ ${Math.floor(classLevel/2) + statMod} (${className}) `;
             } else if (className === 'Bard') {
                 const spellsKnownAtLevel = [4,5,6,7,8,9,10,11,12,14,15,15,16,18,19,19,20,22,22,22];
-                let maxKnown = spellsKnownAtLevel[classLevel];
+                let maxKnown = spellsKnownAtLevel[classLevel-1];
                 const statMod = parseInt(getattr(char.id, 'charisma_mod')) || 0;
                 prepString += `/ ${maxKnown} (${className}) `;
             } 
@@ -438,13 +438,13 @@ on('ready', () => {
     };
 
     // Prints the spell to the chat
-    const PrintSpell = (book, instance, spell, level, chatMessage) => {        
+    const PrintSpell = (book, instance, spell, castLevel, chatMessage) => {        
         const char = GetCharByAny(book.Owner);
         const pb = parseInt(getattr(char.id, 'pb')) || 0;
         const statMod = parseInt(getattr(char.id, instance.Stat.toLowerCase() + '_mod')) || 0;
         const attackMod = parseInt(getattr(char.id, 'globalmagicmod')) || 0;
         const dcMod = parseInt(getattr(char.id, 'spell_dc_mod')) || 0;
-        const casterLevel = parseInt(getattr(char.id, 'caster_level')) || 0;
+        const casterLevel = parseInt(getattr(char.id, 'level')) || 0;
         const dc = 8 + pb + statMod + dcMod;
 
         const statString = statMod !== 0 ? ` + ${statMod}[${StatMap[instance.Stat]}]` : '';
@@ -461,14 +461,14 @@ on('ready', () => {
             let prefix = '';
             let suffix = '';
             
-            if (level > 0) {
+            if (castLevel > 0) {
                 if (offset > upcastIndex && upcastIndex !== -1) {
-                    levelScalar = level - spell.Level;
+                    levelScalar = castLevel - spell.Level;
                     prefix = match + ' (for a total of ';
                     suffix = ')';
                 }
                 autoEval = true;
-            } else if (level === 0 && offset <= upcastIndex) {
+            } else if (castLevel === 0 && offset <= upcastIndex) {
                 if(casterLevel >= 5) {levelScalar++;}
                 if(casterLevel >= 11) {levelScalar++;}
                 if(casterLevel >= 17) {levelScalar++;}
