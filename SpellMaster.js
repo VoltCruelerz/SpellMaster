@@ -367,8 +367,8 @@ on('ready', () => {
         let prepString = '';
         for(let i = 0; i < leveledClasses.length; i++) {
             const classDetails = leveledClasses[i].trim().split(' ');
-            const className = classDetails[0];
-            const classLevel = parseInt(classDetails[1]);
+            const className = classDetails[classDetails.length-2];
+            const classLevel = parseInt(classDetails[classDetails.length-1]);
             if (className === 'Cleric' || className === 'Druid' || className === 'Shaman') {
                 const statMod = parseInt(getattr(char.id, 'wisdom_mod')) || 0;
                 prepString += `/ ${classLevel + statMod} (${className}) `;
@@ -755,8 +755,10 @@ on('ready', () => {
                         spellStr += GetSpellDetails(spellbook, spellInstance, spell, true);
                         spellStr += br;
                         spellStr += CreateLink('[Delete]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^?{Type Yes to delete ${spell.Name}}^`);
-                        spellStr += ' - ';
-                        spellStr += CreateLink('[Lock]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Lock^ --ParamValue ^${spellInstance.Lock ? 'False' : 'True'}^`);
+                        if (spell.Level > 0) {
+                            spellStr += ' - ';
+                            spellStr += CreateLink('[Lock]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Lock^ --ParamValue ^${spellInstance.Lock ? 'False' : 'True'}^`);
+                        }
                         spellStr += hr;
                     }
                 });
@@ -804,7 +806,7 @@ on('ready', () => {
         GetHandout(spellbook.Handout).set('notes', text);
     };
 
-    // Parse chat messages
+    // Process chat messages
     on('chat:message', (msg) => {
         if (msg.type !== 'api') return;
         if (!msg.content.startsWith(chatTrigger)) return;
@@ -1034,6 +1036,7 @@ on('ready', () => {
                 }
             } else if (updateSpell) {
                 if (paramName === 'Prepared') {
+                    dlog(`${spellbook.Owner} is attempting to toggle the preparation of ${updateSpell} to value ${paramValue}`);
                     const prepList = spellbook.PreparationLists[spellbook.ActivePrepList].PreparedSpells;
                     if (paramValue === 'True') {
                         for(let i = 0; i < spellbook.KnownSpells.length; i++) {
@@ -1049,7 +1052,7 @@ on('ready', () => {
                         for(let i = 0; i < spellbook.KnownSpells.length; i++) {
                             const knownSpell = spellbook.KnownSpells[i];
                             if (knownSpell.Name === updateSpell) {
-                                const prepIndex = prepList.indexOf(knownSpell);
+                                const prepIndex = prepList.findIndex((element) => {return element.Name === knownSpell.Name});
                                 if (prepIndex > -1) {
                                     prepList.splice(prepIndex, 1);
                                 }
@@ -1088,6 +1091,7 @@ on('ready', () => {
                     }
                     reloadCacheFor.push(CacheOptions.Spells);
                 } else if (paramName === 'Lock') {
+                    dlog(`${spellbook.Owner} is attempting to toggle the lock of ${updateSpell}`);
                     for (let i = 0; i < spellbook.KnownSpells.length; i++) {
                         const knownSpell = spellbook.KnownSpells[i];
                         if (knownSpell.Name === updateSpell) {
@@ -1104,7 +1108,7 @@ on('ready', () => {
                             if (knownSpell.Name === updateSpell) {
                                 for(let j = 0; j < spellbook.PreparationLists.length; j++) {
                                     const prepList = spellbook.PreparationLists[j].PreparedSpells;
-                                    const prepIndex = prepList.indexOf(knownSpell);
+                                    const prepIndex = prepList.findIndex((element) => {return element.Name === knownSpell.Name});
                                     if (prepIndex > -1) {
                                         prepList.splice(prepIndex, 1);
                                     }
@@ -1324,7 +1328,7 @@ on('ready', () => {
                 const handout = GetHandout(book);
                 // If it's dead, delete it because the user destroyed it.
                 if (handout === null) {
-                    log("WARNING: SpellMaster detected orphan book to be delted: " + bookName);
+                    log("WARNING: SpellMaster detected orphan book to be deleted: " + bookName);
                     delete BookDict[bookName];
                     break;
                 }

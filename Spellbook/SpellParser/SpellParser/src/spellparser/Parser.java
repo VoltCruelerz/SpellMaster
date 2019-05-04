@@ -201,6 +201,7 @@ public class Parser {
                 }
                 
                 Spell spell = new Spell(name, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
+                isRitual = false;
                 retVal.add(spell);
             } catch (Exception e){
                 System.err.println("WARNING! Skipping " + name + " Line " + i + ": " + (String)lines[i]);
