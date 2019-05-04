@@ -1,4 +1,5 @@
-# Don't track content of these folders
+# Don't track content of these folders #
+########################################
 SpellHTML/
 SpellHomebrew/
 out/
@@ -24,5 +25,10 @@ out/
 *.rar
 *.tar
 *.zip
+
+# Specific Files #
+##################
 SpreadRollBox.PNG
 StateFile.txt
+AOO.PNG
+PrepLists.PNG
