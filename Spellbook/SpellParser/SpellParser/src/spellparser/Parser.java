@@ -213,7 +213,7 @@ public class Parser {
         return retVal;
     }
     
-    public Parser() {
+    public Parser(boolean srdOnly) {
         Gson gson = new Gson();
         String[] srdSpellNames = new String[0];
         Charset charset = Charset.forName("UTF-8");
@@ -267,63 +267,64 @@ public class Parser {
         
         // Sort for legibility
         Collections.sort(spells);        
-        
-        // Create Homebrew spells and override same-named raw spells
-        try {        
-            String homebrewFolder = "D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\SpellHomebrew";
-            String[] homebrewFiles = (new File(homebrewFolder)).list();
-            PrintWriter homebrewPW = new PrintWriter("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\homebrewSpells.json");
-            homebrewPW.println("[");
-            
-            for(String file : homebrewFiles) {
-                Path path = Paths.get(homebrewFolder, file);
+        if(!srdOnly) {   
+            // Create Homebrew spells and override same-named raw spells
+            try {        
+                String homebrewFolder = "D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\SpellHomebrew";
+                String[] homebrewFiles = (new File(homebrewFolder)).list();
+                PrintWriter homebrewPW = new PrintWriter("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\homebrewSpells.json");
+                homebrewPW.println("[");
                 
-                Object[] lines = null;
-                try {
-                    lines = Files.readAllLines(path, charset).toArray();
-                } catch (IOException e) {
-                    System.err.println("IO Error: " + e.toString());
-                }
-                
-                ArrayList<Spell> houseSpells = ParseHouseSpellFile(lines);
-                for(Spell houseSpell : houseSpells){
-                    //houseSpell.Dump();
-                    String json = gson.toJson(houseSpell);
-                    homebrewPW.print(json);
-                    if(!houseSpells.get(houseSpells.size()-1).equals(houseSpell)) {
-                        homebrewPW.println(",");
-                    } else {
-                        homebrewPW.println();
-                    }
-                    homebrewPW.flush();
+                for(String file : homebrewFiles) {
+                    Path path = Paths.get(homebrewFolder, file);
                     
-                    // Overwrite old spells
-                    boolean overwroteOldSpell = false;
-                    for(Spell defunctSpell: spells){
-                        if(defunctSpell.Name.equals(houseSpell.Name)){                            
-                            defunctSpell.Level = houseSpell.Level;
-                            defunctSpell.School = houseSpell.School;
-                            defunctSpell.IsRitual = houseSpell.IsRitual;
-                            defunctSpell.CastTime = houseSpell.CastTime;
-                            defunctSpell.Range = houseSpell.Range;
-                            defunctSpell.Components = houseSpell.Components;
-                            defunctSpell.Duration = houseSpell.Duration;
-                            defunctSpell.Desc = houseSpell.Desc;
-                            defunctSpell.Classes = houseSpell.Classes;
-                            
-                            overwroteOldSpell = true;
-                            break;
+                    Object[] lines = null;
+                    try {
+                        lines = Files.readAllLines(path, charset).toArray();
+                    } catch (IOException e) {
+                        System.err.println("IO Error: " + e.toString());
+                    }
+                    
+                    ArrayList<Spell> houseSpells = ParseHouseSpellFile(lines);
+                    for(Spell houseSpell : houseSpells){
+                        //houseSpell.Dump();
+                        String json = gson.toJson(houseSpell);
+                        homebrewPW.print(json);
+                        if(!houseSpells.get(houseSpells.size()-1).equals(houseSpell)) {
+                            homebrewPW.println(",");
+                        } else {
+                            homebrewPW.println();
+                        }
+                        homebrewPW.flush();
+                        
+                        // Overwrite old spells
+                        boolean overwroteOldSpell = false;
+                        for(Spell defunctSpell: spells){
+                            if(defunctSpell.Name.equals(houseSpell.Name)){                            
+                                defunctSpell.Level = houseSpell.Level;
+                                defunctSpell.School = houseSpell.School;
+                                defunctSpell.IsRitual = houseSpell.IsRitual;
+                                defunctSpell.CastTime = houseSpell.CastTime;
+                                defunctSpell.Range = houseSpell.Range;
+                                defunctSpell.Components = houseSpell.Components;
+                                defunctSpell.Duration = houseSpell.Duration;
+                                defunctSpell.Desc = houseSpell.Desc;
+                                defunctSpell.Classes = houseSpell.Classes;
+                                
+                                overwroteOldSpell = true;
+                                break;
+                            }
+                        }
+                        if(!overwroteOldSpell){
+                            spells.add(houseSpell);
                         }
                     }
-                    if(!overwroteOldSpell){
-                        spells.add(houseSpell);
-                    }
                 }
+                homebrewPW.println("]");
+                homebrewPW.flush();
+            } catch (FileNotFoundException e) {
+                System.err.println("Exception: " + e.toString());
             }
-            homebrewPW.println("]");
-            homebrewPW.flush();
-        } catch (FileNotFoundException e) {
-            System.err.println("Exception: " + e.toString());
         }
 
         for(int i = 0; i < spells.size(); i++) {
@@ -371,6 +372,9 @@ public class Parser {
             jsPW.println("const SpellList = [");
             for(int i = 0; i < spells.size(); i++) {
                 Spell spell = spells.get(i);
+                if (srdOnly && spell.Classes.indexOf("SRD") == -1) {
+                    continue;
+                }
                 String js = spell.PrintJS();
                 //System.out.println("JS: " + js);
                 jsPW.print(js);
@@ -392,6 +396,7 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        Parser parser = new Parser();
+        boolean srdOnly = false;
+        Parser parser = new Parser(srdOnly);
     }
 }
