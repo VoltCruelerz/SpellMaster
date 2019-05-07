@@ -369,7 +369,7 @@ public class Parser {
         try {
             PrintWriter jsPW = new PrintWriter("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\SpellbookConst.js");
             jsPW.println("if (typeof MarkStart != 'undefined') MarkStart('SpellList');");
-            jsPW.println("const SpellList = [");
+            jsPW.println("var SpellList = [");
             for(int i = 0; i < spells.size(); i++) {
                 Spell spell = spells.get(i);
                 if (srdOnly && spell.Classes.indexOf("SRD") == -1) {

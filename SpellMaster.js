@@ -1,5 +1,4 @@
 if (typeof MarkStart != 'undefined') MarkStart('SpellMaster');
-if(!SpellList) throw new Exception("Spell List Not Included!");
 const SpellDict = {};
 
 if(!state.SpellMaster) {
@@ -9,6 +8,8 @@ if(!state.SpellMaster) {
 }
 
 on('ready', () => {
+    if (!SpellList) throw new Error('SRD.js is not installed!');
+    
     const chatTrigger = '!SpellMaster';// This is the trigger that makes the script listen
     const scname = 'SpellMaster';// How this script shows up when it sends chat messages
     const maxSpellLevel = 10;// My campaign has a few NPCs with 10th-level magic
