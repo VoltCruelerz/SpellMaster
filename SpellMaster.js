@@ -346,7 +346,7 @@ on('ready', () => {
     const FilterSymbols = ['X', '!', '_'];
 
     // Sends a message to a gm and a player.  If the player is a gm, don't double-send
-    const sendToGmAndPlayer = (chatMessage, target, msg) => {
+    const sendToGmAndPlayer = (chatMessage, msg) => {
         let sendSuccess = false;
         try {
             sendChat(scname, `/w "${chatMessage.who.replace(' (GM)', '')}" ${msg}`);
@@ -402,6 +402,11 @@ on('ready', () => {
         return prepString;
     }
 
+    // Returns true if the stat of this instance is a manual DC, false if it's anything else.
+    const StatIsManualDC = (instance) => {
+        return instance.Stat === 'Manual DC';
+    }
+
     // Returns a string that contains the details of a spell (used by expansion and casting)
     const GetSpellDetails = (book, instance, spell, createLinks) => {
         text = "";
@@ -424,8 +429,16 @@ on('ready', () => {
             .replace("HLCODE", '<b>- Higher Levels:</b>');
         text += `<b>- Description:</b> ${descStr}<br/>`;
         if(createLinks) {
-            const abilityLink = CreateLink('Ability:', `!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^Ability^ --ParamValue ^?{Please select the ability to use when casting this spell.|Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma}^`);
+            const abilityLink = CreateLink('Ability:', `!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^Ability^ --ParamValue ^?{Please select the ability to use when casting this spell.|Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma|Manual DC}^`);
             text += `<b>- ${abilityLink}</b> ${instance.Stat}<br/>`;
+            if (StatIsManualDC(instance)) {
+                // 1.0 -> 1.1 version handling
+                if (!instance.DC) {
+                    instance.DC = 8;
+                }
+                const dcLink = CreateLink('DC:', `!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^DC^ --ParamValue ^?{Please enter the manually-configured DC}^`);
+                text += `<b>- ${dcLink}</b> ${instance.DC}<br/>`;
+            }
             const notesLink = CreateLink('Notes:',`!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^Notes^ --ParamValue ^?{Please type the new notes section.  You may want to type outside this window and paste for longer messages.  Use html br tag for line breaks.}^`);
             text += `<b>- ${notesLink}</b> ${instance.Notes}<br/>`;
         } else {
@@ -437,19 +450,30 @@ on('ready', () => {
         return text;
     };
 
-    // Prints the spell to the chat
-    const PrintSpell = (book, instance, spell, castLevel, chatMessage) => {        
+    // Prints the spell to the chat when casting a spell
+    const PrintSpell = (book, instance, spell, castLevel, chatMessage) => {
         const char = GetCharByAny(book.Owner);
-        const pb = parseInt(getattr(char.id, 'pb')) || 0;
-        const statMod = parseInt(getattr(char.id, instance.Stat.toLowerCase() + '_mod')) || 0;
-        const attackMod = parseInt(getattr(char.id, 'globalmagicmod')) || 0;
-        const dcMod = parseInt(getattr(char.id, 'spell_dc_mod')) || 0;
-        const casterLevel = parseInt(getattr(char.id, 'level')) || 0;
-        const dc = 8 + pb + statMod + dcMod;
+        const whisperToggle = getattr(char.id, 'whispertoggle') === '/w gm ';
 
-        const statString = statMod !== 0 ? ` + ${statMod}[${StatMap[instance.Stat]}]` : '';
-        const atkString = attackMod !== 0 ? ` + ${attackMod}[ATKMOD]` : '';
-        let attackRollStr = `[[@{${book.Owner}|d20}cs>20${statString} + ${pb}[PROF]${atkString}]]`;
+        let dc = 0;
+        let attackRollStr = 0;
+        let casterLevel = 0;
+
+        if (StatIsManualDC(instance)) {
+            dc = parseInt(instance.DC);
+            attackRollStr = `[[d20cs>20 + ${dc-8}[ATKMOD]]]`;
+        } else {
+            const pb = parseInt(getattr(char.id, 'pb')) || 0;
+            const statMod = parseInt(getattr(char.id, instance.Stat.toLowerCase() + '_mod')) || 0;
+            const attackMod = parseInt(getattr(char.id, 'globalmagicmod')) || 0;
+            const dcMod = parseInt(getattr(char.id, 'spell_dc_mod')) || 0;
+            casterLevel = parseInt(getattr(char.id, 'level')) || 0;
+            dc = 8 + pb + statMod + dcMod;
+    
+            const statString = statMod !== 0 ? ` + ${statMod}[${StatMap[instance.Stat]}]` : '';
+            const atkString = attackMod !== 0 ? ` + ${attackMod}[ATKMOD]` : '';
+            attackRollStr = `[[@{${book.Owner}|d20}cs>20${statString} + ${pb}[PROF]${atkString}]]`;
+        }
         let spellDetails = GetSpellDetails(book, instance, spell, false);
 
         const upcastIndex = spellDetails.indexOf('Higher Levels:');
@@ -501,7 +525,11 @@ on('ready', () => {
             +`{{description=${descriptionFull}}}`;
 
         dlog("Spell Contents: " + spellContents);
-        sendToGmAndPlayer(chatMessage, book.Owner, spellContents);
+        if (whisperToggle) {
+            sendToGmAndPlayer(chatMessage, spellContents);
+        } else {
+            sendChat(scname, spellContents);
+        }
         return spellContents;
     };
 
@@ -876,6 +904,7 @@ on('ready', () => {
                             Name: curSpell.Name,
                             IsExpanded: false,
                             Stat: stat,
+                            DC: 8,
                             Lock: false,
                             Notes: '',
                             CurSlots: 0,
@@ -894,6 +923,7 @@ on('ready', () => {
                 Name: bookName,
                 Handout: handout.id,
                 Stat: stat,
+                DC: 8,
                 Owner: owner,
                 CasterClass: casterClass,
                 PreparationLists: [// An array of arrays of spell names
@@ -1077,6 +1107,15 @@ on('ready', () => {
                         const knownSpell = spellbook.KnownSpells[i];
                         if (knownSpell.Name === updateSpell) {
                             knownSpell.Stat = paramValue;
+                            break;
+                        }
+                    }
+                    reloadCacheFor.push(CacheOptions.Spells);
+                } else if (paramName === 'DC') {
+                    for (let i = 0; i < spellbook.KnownSpells.length; i++) {
+                        const knownSpell = spellbook.KnownSpells[i];
+                        if (knownSpell.Name === updateSpell) {
+                            knownSpell.DC = parseInt(paramValue);
                             break;
                         }
                     }
