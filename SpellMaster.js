@@ -1,26 +1,36 @@
 if (typeof MarkStart != 'undefined') MarkStart('SpellMaster');
 const SpellDict = {};
 
-if(!state.SpellMaster) {
-    state.SpellMaster = {
-        Sheet: 'OGL'
+const SpellMasterInstall = () => {
+    const defaultSettings = {
+        Sheet: 'OGL',
+        Version: 1.2
     };
+    if(!state.SpellMaster) {
+        state.SpellMaster = defaultSettings;
+    }
+    if (!state.SpellMaster.Version) {
+        state.SpellMaster.Version = defaultSettings.Version;
+    }
 }
+SpellMasterInstall();
 
 on('ready', () => {
     if (!SpellList) throw new Error('SRD.js is not installed!');
-    
+
     const chatTrigger = '!SpellMaster';// This is the trigger that makes the script listen
     const scname = 'SpellMaster';// How this script shows up when it sends chat messages
     const maxSpellLevel = 10;// My campaign has a few NPCs with 10th-level magic
-    const debugLog = false;
+    const debugLog = true;
 
+    // Debug Log
     const dlog = (str) => {
         if (debugLog) {
             log(str);
         }
     }
 
+    // Fatal Log
     const flog = (str, errorCode) => {
         log('SPELL MASTER FATAL ERROR CODE ' + errorCode + ' = ' + str);
         log('DUMPING STATE.SPELLMASTER');
@@ -96,6 +106,7 @@ on('ready', () => {
         return null;
     };
 
+    // Get attribute from char sheet.  Should usually use GetCachedAttr()
     const getattr = (charId, att) => {
         const attr = findObjs({
             type: 'attribute',
@@ -108,6 +119,7 @@ on('ready', () => {
         return '';
     };
 
+    // Set attribute on char sheet
     const setattr = (charId, attrName, val) => {
         const attr = findObjs({
             type: 'attribute',
@@ -144,7 +156,7 @@ on('ready', () => {
         return -1;
     };
 
-    // Pulls the interior message out of carets
+    // Pulls the interior message out of carets (^)
     const Decaret = (quotedString) => {
         const startQuote = quotedString.indexOf('^');
         const endQuote = quotedString.lastIndexOf('^');
@@ -305,6 +317,7 @@ on('ready', () => {
         }
     };
 
+    // Map full text names to abbreviations, so Intelligence => INT.
     const StatMap = {};
     const MapAbilities = () => {
         StatMap['Strength'] = 'STR';
@@ -362,8 +375,9 @@ on('ready', () => {
         }
     };
 
-    const GetMaxPreparationString = (char) => {
-        const classDisplay = getattr(char.id, 'class_display');
+    const GetMaxPreparationString = (char, spellbook) => {
+        let cachedBook = Cache[spellbook.Name];
+        const classDisplay = GetCachedAttr(char, cachedBook, 'class_display');
         const leveledClasses = classDisplay.split(',');
         let prepString = '';
         for(let i = 0; i < leveledClasses.length; i++) {
@@ -371,10 +385,10 @@ on('ready', () => {
             const className = classDetails[classDetails.length-2];
             const classLevel = parseInt(classDetails[classDetails.length-1]);
             if (className === 'Cleric' || className === 'Druid' || className === 'Shaman') {
-                const statMod = parseInt(getattr(char.id, 'wisdom_mod')) || 0;
+                const statMod = GetCachedAttr(char, cachedBook, char.id, 'wisdom_mod') || 0;
                 prepString += `/ ${classLevel + statMod} (${className}) `;
             } else if (className === 'Wizard' || className === 'Artificer') {
-                const statMod = parseInt(getattr(char.id, 'intelligence_mod')) || 0;
+                const statMod = GetCachedAttr(char, cachedBook, 'intelligence_mod') || 0;
                 prepString += `/ ${classLevel + statMod} (${className}) `;
             } else if (className === 'Warlock' || className === 'Witch') {
                 const spellsKnownAtLevel = [2,3,4,5,6,7,8,9,10,10,11,11,12,12,13,13,14,14,15,15];
@@ -383,20 +397,20 @@ on('ready', () => {
                 maxKnown += classLevel >= 13 ? 1 : 0;// Mystic Arcanum L7
                 maxKnown += classLevel >= 15 ? 1 : 0;// Mystic Arcanum L8
                 maxKnown += classLevel >= 17 ? 1 : 0;// Mystic Arcanum L9
-                const statMod = parseInt(getattr(char.id, 'charisma_mod')) || 0;
+                const statMod = GetCachedAttr(char, cachedBook, 'charisma_mod') || 0;
                 prepString += `/ ${maxKnown} (${className}) `;
             } else if (className === 'Sorcerer') {
                 const spellsKnownAtLevel = [2,3,4,5,6,7,8,9,10,11,12,12,13,13,14,14,15,15,15,15];
                 let maxKnown = spellsKnownAtLevel[classLevel-1];
-                const statMod = parseInt(getattr(char.id, 'charisma_mod')) || 0;
+                const statMod = GetCachedAttr(char, cachedBook, 'charisma_mod') || 0;
                 prepString += `/ ${maxKnown} (${className}) `;
             } else if (className === 'Paladin') {
-                const statMod = parseInt(getattr(char.id, 'charisma_mod')) || 0;
+                const statMod = GetCachedAttr(char, cachedBook, 'charisma_mod') || 0;
                 prepString += `/ ${Math.floor(classLevel/2) + statMod} (${className}) `;
             } else if (className === 'Bard') {
                 const spellsKnownAtLevel = [4,5,6,7,8,9,10,11,12,14,15,15,16,18,19,19,20,22,22,22];
                 let maxKnown = spellsKnownAtLevel[classLevel-1];
-                const statMod = parseInt(getattr(char.id, 'charisma_mod')) || 0;
+                const statMod = GetCachedAttr(char, cachedBook, 'charisma_mod') || 0;
                 prepString += `/ ${maxKnown} (${className}) `;
             } 
         }
@@ -444,7 +458,9 @@ on('ready', () => {
             text += `<b>- ${notesLink}</b> ${instance.Notes}<br/>`;
         } else {
             text += `<b>- Ability:</b> ${instance.Stat}<br/>`;
-            text += `<b>- Notes:</b> ${instance.Notes}<br/>`;
+            if (instance.Notes) {
+                text += `<b>- Notes:</b> ${instance.Notes}<br/>`;
+            }
         }
         text += `<b>- Classes:</b> ${spell.Classes}<br/>`;
 
@@ -454,7 +470,8 @@ on('ready', () => {
     // Prints the spell to the chat when casting a spell
     const PrintSpell = (book, instance, spell, castLevel, chatMessage) => {
         const char = GetCharByAny(book.Owner);
-        const whisperToggle = getattr(char.id, 'whispertoggle') === '/w gm ';
+        let cachedBook = Cache[book.Name];
+        const whisperToggle = GetCachedAttr(char, cachedBook, 'whispertoggle') === '/w gm ';
 
         let dc = 0;
         let attackRollStr = 0;
@@ -464,11 +481,11 @@ on('ready', () => {
             dc = parseInt(instance.DC);
             attackRollStr = `[[d20cs>20 + ${dc-8}[ATKMOD]]]`;
         } else {
-            const pb = parseInt(getattr(char.id, 'pb')) || 0;
-            const statMod = parseInt(getattr(char.id, instance.Stat.toLowerCase() + '_mod')) || 0;
-            const attackMod = parseInt(getattr(char.id, 'globalmagicmod')) || 0;
-            const dcMod = parseInt(getattr(char.id, 'spell_dc_mod')) || 0;
-            casterLevel = parseInt(getattr(char.id, 'level')) || 0;
+            const pb = GetCachedAttr(char, cachedBook, 'pb') || 0;
+            const statMod = GetCachedAttr(char, cachedBook, instance.Stat.toLowerCase() + '_mod') || 0;
+            const attackMod = GetCachedAttr(char, cachedBook, 'globalmagicmod') || 0;
+            const dcMod = GetCachedAttr(char, cachedBook, 'spell_dc_mod') || 0;
+            casterLevel = GetCachedAttr(char, cachedBook, 'level') || 0;
             dc = 8 + pb + statMod + dcMod;
     
             const statString = statMod !== 0 ? ` + ${statMod}[${StatMap[instance.Stat]}]` : '';
@@ -542,7 +559,8 @@ on('ready', () => {
         Tools: 3,
         Prepared: 4,
         Spells: 5,
-        PrepLists: 6
+        PrepLists: 6,
+        AllSpellLevels: [0,1,2,3,4,5,6,7,8,9,10]
     };
 
     // Checks specified level and all levels above to see if a spell is castable
@@ -557,39 +575,76 @@ on('ready', () => {
             }
         }
         return false;
-    }
+    };
+
+    // Create a new cache object
+    const RefreshCachedBook = (spellbook) => {
+        const char = GetCharByAny(spellbook.Owner);
+        const startCache = new Date();
+        let cachedBook = {
+            OwnerStr: '',
+            FilteringStr: '',
+            ToolsStr: '',
+            PreparedStr: '',
+            SpellsStr: '',
+            SpellLevels: ['','','','','','','','','','',''],
+            PrepListsStr: '',
+            Sheet: {}
+        };
+
+        // Build cached attributes from sheet (this is expensive)
+        cachedBook.Sheet['_id'] = GetCachedAttr(char, cachedBook, '_id', true);
+        cachedBook.Sheet['level'] = GetCachedAttr(char, cachedBook, 'level', true);
+        cachedBook.Sheet['class_display'] = GetCachedAttr(char, cachedBook, 'class_display', true);
+        cachedBook.Sheet['whispertoggle'] = GetCachedAttr(char, cachedBook, 'whispertoggle', true);
+        cachedBook.Sheet['pb'] = GetCachedAttr(char, cachedBook, 'pb', true);
+        cachedBook.Sheet['globalmagicmod'] = GetCachedAttr(char, cachedBook, 'globalmagicmod', true);
+        cachedBook.Sheet['spell_dc_mod'] = GetCachedAttr(char, cachedBook, 'spell_dc_mod', true);
+        cachedBook.Sheet['strength_mod'] = GetCachedAttr(char, cachedBook, 'strength_mod', true);
+        cachedBook.Sheet['dexterity_mod'] = GetCachedAttr(char, cachedBook, 'dexterity_mod', true);
+        cachedBook.Sheet['constitution_mod'] = GetCachedAttr(char, cachedBook, 'constitution_mod', true);
+        cachedBook.Sheet['intelligence_mod'] = GetCachedAttr(char, cachedBook, 'intelligence_mod', true);
+        cachedBook.Sheet['wisdom_mod'] = GetCachedAttr(char, cachedBook, 'wisdom_mod', true);
+        cachedBook.Sheet['charisma_mod'] = GetCachedAttr(char, cachedBook, 'charisma_mod', true);
+        const stopCache = new Date();
+        const diffCache = stopCache - startCache;
+        dlog('Initial Sheet Caching: ' + diffCache);
+        Cache[spellbook.Name] = cachedBook;
+        return cachedBook;
+    };
+
+    // Loads from the cache if possible, loads from char if not
+    const GetCachedAttr = (char, cachedBook, attrName, forceReload = false) => {
+        if (forceReload) {
+            let attrVal = getattr(char.id, attrName);
+            // Try to parse as int if possible
+            let numVal = parseInt(attrVal);
+            if (!isNaN(numVal)) {
+                attrVal = numVal;
+            }
+            cachedBook.Sheet[attrName] = attrVal;
+            return attrVal;
+        } else {
+            return cachedBook.Sheet[attrName];
+        }
+    };
 
     // Prints a spellbook out to its handout.
     // spellbook: the spellbook object
-    // forceReload: an array of CacheOptions that must be rebuilt.
-    const PrintSpellbook = (spellbook, forceReload) => {
+    // dirtyCaches: an array of CacheOptions that must be rebuilt.
+    const PrintSpellbook = (spellbook, dirtyCaches, dirtyLevels) => {
+        const startTime = new Date();
         const activePrepList = spellbook.PreparationLists[spellbook.ActivePrepList];
         const char = GetCharByAny(spellbook.Owner);
         let text = "";
         let br = "<br/>";
         let hr = "<hr>";
-
-        // Load the cache or build a new one
         let cachedBook = Cache[spellbook.Name];
-        if (!cachedBook) {
-            // Create a new cache object
-            cachedBook = {
-                OwnerStr: '',
-                FilteringStr: '',
-                ToolsStr: '',
-                PreparedStr: '',
-                SpellsStr: '',
-                PrepListsStr: ''
-            };
-            Cache[spellbook.Name] = cachedBook;
-            // There is no cache.  Build everything.
-            forceReload = [CacheOptions.All];
-        }
 
         // =================================================================================
         // Owner
         let ownerStr = '';
-        if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Owner)) {
+        if (dirtyCaches.includes(CacheOptions.All) || dirtyCaches.includes(CacheOptions.Owner)) {
             dlog('Rebuilding Owner');
             let uri = `http://journal.roll20.net/character/${char.id}`;
             ownerStr += `<i>A spellbook for </i>${CreateLink(spellbook.Owner, uri)}`;
@@ -604,7 +659,7 @@ on('ready', () => {
         // =================================================================================
         // Filter bar
         let filterStr = '';
-        if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Filtering)) {
+        if (dirtyCaches.includes(CacheOptions.All) || dirtyCaches.includes(CacheOptions.Filtering)) {
             dlog('Rebuilding Filtering');
             const vFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.V]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^V^ --ParamValue ^?{Please enter the new filter option|V,${Filters.WithFlag}|No-V,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
             const sFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.S]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^S^ --ParamValue ^?{Please enter the new filter option|S,${Filters.WithFlag}|No-S,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
@@ -625,7 +680,7 @@ on('ready', () => {
         // =================================================================================
         // Tools
         let toolsStr = '';
-        if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Tools)) {
+        if (dirtyCaches.includes(CacheOptions.All) || dirtyCaches.includes(CacheOptions.Tools)) {
             dlog('Rebuilding Tools');
             const fillSlotsLink = CreateLink(`[Long Rest]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --SetSlots ^Full^`);
             toolsStr += `<b>Tools:</b> ${fillSlotsLink}<br/>`;
@@ -639,9 +694,9 @@ on('ready', () => {
         // =================================================================================
         // Prepared Spell Count
         let preparedStr = '';
-        if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Prepared)) {
+        if (dirtyCaches.includes(CacheOptions.All) || dirtyCaches.includes(CacheOptions.Prepared)) {
             dlog('Rebuilding Prepared');
-            const prepString = `${activePrepList.PreparedSpells.length} ${GetMaxPreparationString(char)}`;
+            const prepString = `${activePrepList.PreparedSpells.length} ${GetMaxPreparationString(char, spellbook)}`;
             preparedStr += `<b>Prepared:</b> ${prepString}<br/>`;
             preparedStr += '<hr>';
             cachedBook.PreparedStr = preparedStr;
@@ -654,21 +709,30 @@ on('ready', () => {
         // =================================================================================
         // Spells
         let spellStr = '';
-        if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.Spells)) {
+        if (dirtyCaches.includes(CacheOptions.All) || dirtyCaches.includes(CacheOptions.Spells)) {
             dlog('Rebuilding Spells');
             // Perform alpha sort on known spells (in case one got added)
             spellbook.KnownSpells.sort(Sorters.NameAlpha);
 
             spellStr += '<h2>Spells</h2>';
             spellStr += '<hr>';
+            dlog('Dirty Levels: ' + dirtyLevels);
             for (let i = 0; i < maxSpellLevel; i++) {
                 const hasSlotsOfAtLeastLevel = HasSlotsOfAtLeastLevel(spellbook, i);
                 if (i > 0 && ((spellbook.Filter.Slots === Filters.WithFlag && !hasSlotsOfAtLeastLevel) || (spellbook.Filter.Slots === Filters.WithoutFlag && hasSlotsOfAtLeastLevel))) {
                     continue;
                 }
+                if (dirtyLevels !== CacheOptions.AllSpellLevels && !dirtyLevels.includes(i) && cachedBook.SpellLevels[i].length > 0) {
+                    spellStr += cachedBook.SpellLevels[i];
+                    dlog(`  Using Cached Level: ${i}`);
+                    continue;
+                }
+                dlog(`  Rebuilding Level: ${i}`);
+                let levelStr = '';
+
                 const curSlotLink = CreateLink(`[${spellbook.CurSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Cur^ --ParamValue ^?{Please enter the new current value for Slot Level ${i}}^`);
                 const maxSlotLink = CreateLink(`[${spellbook.MaxSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Max^ --ParamValue ^?{Please enter the new maximum value for Slot Level ${i}}^`);
-                spellStr += i > 0
+                levelStr += i > 0
                     ? `<h3>Level ${i} Spells - ${curSlotLink} / ${maxSlotLink} </h3>`
                     : `<h3>Cantrips</h3>`;
     
@@ -777,23 +841,26 @@ on('ready', () => {
                         innerSlotDisplayStr = `<b>${indiCur} / ${indiMax}</b>`;
                     }
 
-                    spellStr += `<h4>${prepButton} ${castLink}${tagStr}${titleSlotDisplayStr} - ${expandedText}</h4>`;
+                    levelStr += `<h4>${prepButton} ${castLink}${tagStr}${titleSlotDisplayStr} - ${expandedText}</h4>`;
                     if (spellInstance.IsExpanded) {
-                        spellStr += innerSlotDisplayStr;
-                        spellStr += hr;
-                        spellStr += GetSpellDetails(spellbook, spellInstance, spell, true);
-                        spellStr += br;
-                        spellStr += CreateLink('[Delete]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^?{Type Yes to delete ${spell.Name}}^`);
+                        levelStr += innerSlotDisplayStr;
+                        levelStr += hr;
+                        levelStr += GetSpellDetails(spellbook, spellInstance, spell, true);
+                        levelStr += br;
+                        levelStr += CreateLink('[Delete]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^?{Type Yes to delete ${spell.Name}}^`);
                         if (spell.Level > 0) {
-                            spellStr += ' - ';
-                            spellStr += CreateLink('[Lock]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Lock^ --ParamValue ^${spellInstance.Lock ? 'False' : 'True'}^`);
+                            levelStr += ' - ';
+                            levelStr += CreateLink('[Lock]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Lock^ --ParamValue ^${spellInstance.Lock ? 'False' : 'True'}^`);
                         }
-                        spellStr += hr;
+                        levelStr += hr;
                     }
                 });
-                spellStr += br;
-                spellStr += CreateLink('<b>[+]</b>', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ImportSpell ^?{Please enter the name of the spell you would like to import.}^`);
-                spellStr += hr;
+                levelStr += br;
+                levelStr += CreateLink('<b>[+]</b>', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ImportSpell ^?{Please enter the name of the spell you would like to import.}^`);
+                levelStr += hr;
+
+                cachedBook.SpellLevels[i] = levelStr;
+                spellStr += levelStr;
             }
             cachedBook.SpellsStr = spellStr;
         } else {
@@ -806,7 +873,7 @@ on('ready', () => {
         // =================================================================================
         // Preparation Tabs
         let prepListStr = '';
-        if (forceReload.includes(CacheOptions.All) || forceReload.includes(CacheOptions.PrepLists)) {
+        if (dirtyCaches.includes(CacheOptions.All) || dirtyCaches.includes(CacheOptions.PrepLists)) {
             dlog('Rebuilding Prep Lists');
             prepListStr += '<h2>Preparation Lists</h2>';
             for (let i = 0; i < spellbook.PreparationLists.length; i++) {
@@ -833,6 +900,9 @@ on('ready', () => {
         // Print
         //log(text);
         GetHandout(spellbook.Handout).set('notes', text);
+        const stopTime = new Date();
+        const diff = stopTime - startTime;
+        dlog(`Print Time with Dirty Cache ${dirtyCaches} and Dirty Levels ${dirtyLevels}: ${diff}`);
     };
 
     // Process chat messages
@@ -843,6 +913,7 @@ on('ready', () => {
             sendChat(scname, "SpellMaster is still indexing spells.  Please wait a few seconds and try again.");
             return;
         }
+        const startParse = new Date();
         
         const argWords = msg.content.split(/\s+/);
         const argParams = msg.content.split('--');
@@ -867,7 +938,6 @@ on('ready', () => {
         }
 
         // Create new spell book handout
-        // !SpellMaster --CreateBook ^Tazeka's Spells^ --Owner ^Tazeka Liranov^ --Stat ^Wisdom^ --ImportClass ^Druid^ --Level ^11^
         const createBookTag = '--CreateBook';
         if(argWords.includes(createBookTag)) {
             const bookName = GetParamValue(argParams, 'CreateBook');
@@ -924,7 +994,6 @@ on('ready', () => {
                 Name: bookName,
                 Handout: handout.id,
                 Stat: stat,
-                DC: 8,
                 Owner: owner,
                 CasterClass: casterClass,
                 PreparationLists: [// An array of arrays of spell names
@@ -949,24 +1018,16 @@ on('ready', () => {
                 MaxSlots: GetBaseSpellSlots(type, level)
             };
             log("Successfully created a new spell list!");
-            PrintSpellbook(BookDict[bookName], [CacheOptions.All]);
+            PrintSpellbook(BookDict[bookName], [CacheOptions.All], CacheOptions.AllSpellLevels);
             sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Spellbook created.`);
+
+            const stopParse = new Date();
+            const diffParse = stopParse - startParse;
+            dlog('Creation Time: ' + diffParse);
             return;
         }
 
         // Update existing book
-        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --ImportSpell ^Moonbeam^
-        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --RemoveSpell ^Moonbeam^ --Confirm ^Yes^
-        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --UpdateSpell ^Moonbeam^ --ParamName ^Prepared^ --ParamValue ^True^
-        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --UpdateSlot ^3^ --ParamName ^Cur^ --ParamValue ^5^
-        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --UpdateSlot ^3^ --ParamName ^Max^ --ParamValue ^5^
-        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --ParamName ^V^ --ParamValue ^Filters.WithFlag^
-        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --AddPrepList ^Offense^
-        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --RemovePrepList ^0^ --Confirm ^Yes^
-        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --RenamePrepList ^0^ --ParamValue ^MyNewName^
-        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --CastSpell ^Moonbeam^ --ParamName ^Level^ --ParamValue ^3^
-        // !SpellMaster --UpdateBook ^Izzy's Spellbook^ --UpdateSpell ^Hex^ --ParamName ^Ability^ --ParamValue ^Charisma^
-        // !SpellMaster --UpdateBook ^Tazeka's Spellbook^ --SetSlots ^Full^
         const updateBookTag = '--UpdateBook';
         if (argWords.includes(updateBookTag)) {
             // Book to use
@@ -995,7 +1056,15 @@ on('ready', () => {
             const confirm = GetParamValue(argParams, 'Confirm');
 
             // the list of caches that need to be updated.  Duplicates are fine.
-            reloadCacheFor = [];
+            dirtyCaches = [];
+            dirtyLevels = [];
+
+            // Build the cache if it doesn't already exist.
+            if (!Cache[spellbook.Name]) {
+                RefreshCachedBook(spellbook);
+                dirtyCaches.push(CacheOptions.All);
+                dirtyLevels = CacheOptions.AllSpellLevels;
+            }
 
             // Interaction buttons
             if (importSpell) {
@@ -1020,7 +1089,8 @@ on('ready', () => {
                     CurSlots: 0,
                     MaxSlots: 0
                 });
-                reloadCacheFor.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyLevels = [spell.Level];
             } else if (removeSpell) {
                 if (confirm !== 'Yes') {
                     return;
@@ -1060,12 +1130,15 @@ on('ready', () => {
                 }
 
                 // Set cache options
-                reloadCacheFor.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyLevels = [SpellDict[removeSpell].Level];
                 if (spellUnprepared) {
-                    reloadCacheFor.push(CacheOptions.Prepared);
-                    reloadCacheFor.push(CacheOptions.PrepLists);
+                    dirtyCaches.push(CacheOptions.Prepared);
+                    dirtyCaches.push(CacheOptions.PrepLists);
                 }
             } else if (updateSpell) {
+                dirtyCaches = [CacheOptions.Spells];
+                dirtyLevels = [SpellDict[updateSpell].Level];
                 if (paramName === 'Prepared') {
                     dlog(`${spellbook.Owner} is attempting to toggle the preparation of ${updateSpell} to value ${paramValue}`);
                     const prepList = spellbook.PreparationLists[spellbook.ActivePrepList].PreparedSpells;
@@ -1091,9 +1164,8 @@ on('ready', () => {
                             }
                         }
                     }
-                    reloadCacheFor.push(CacheOptions.Spells);
-                    reloadCacheFor.push(CacheOptions.Prepared);
-                    reloadCacheFor.push(CacheOptions.PrepLists);
+                    dirtyCaches.push(CacheOptions.Prepared);
+                    dirtyCaches.push(CacheOptions.PrepLists);
                 } else if (paramName === 'Expanded') {
                     for (let i = 0; i < spellbook.KnownSpells.length; i++) {
                         const knownSpell = spellbook.KnownSpells[i];
@@ -1102,7 +1174,6 @@ on('ready', () => {
                             break;
                         }
                     }
-                    reloadCacheFor.push(CacheOptions.Spells);
                 } else if (paramName === 'Ability') {
                     for (let i = 0; i < spellbook.KnownSpells.length; i++) {
                         const knownSpell = spellbook.KnownSpells[i];
@@ -1111,7 +1182,6 @@ on('ready', () => {
                             break;
                         }
                     }
-                    reloadCacheFor.push(CacheOptions.Spells);
                 } else if (paramName === 'DC') {
                     for (let i = 0; i < spellbook.KnownSpells.length; i++) {
                         const knownSpell = spellbook.KnownSpells[i];
@@ -1120,7 +1190,6 @@ on('ready', () => {
                             break;
                         }
                     }
-                    reloadCacheFor.push(CacheOptions.Spells);
                 } else if (paramName === 'Notes') {
                     for (let i = 0; i < spellbook.KnownSpells.length; i++) {
                         const knownSpell = spellbook.KnownSpells[i];
@@ -1129,7 +1198,6 @@ on('ready', () => {
                             break;
                         }
                     }
-                    reloadCacheFor.push(CacheOptions.Spells);
                 } else if (paramName === 'Lock') {
                     dlog(`${spellbook.Owner} is attempting to toggle the lock of ${updateSpell}`);
                     for (let i = 0; i < spellbook.KnownSpells.length; i++) {
@@ -1157,9 +1225,8 @@ on('ready', () => {
                         }
                     }
 
-                    reloadCacheFor.push(CacheOptions.Prepared);
-                    reloadCacheFor.push(CacheOptions.PrepLists);
-                    reloadCacheFor.push(CacheOptions.Spells);
+                    dirtyCaches.push(CacheOptions.Prepared);
+                    dirtyCaches.push(CacheOptions.PrepLists);
                 } else if (paramName === 'CurSlots') {
                     const newVal = parseInt(paramValue) || 0;
                     for (let i = 0; i < spellbook.KnownSpells.length; i++) {
@@ -1169,7 +1236,6 @@ on('ready', () => {
                             break;
                         }
                     }
-                    reloadCacheFor.push(CacheOptions.Spells);
                 } else if (paramName === 'MaxSlots') {
                     const newVal = parseInt(paramValue) || 0;
                     for (let i = 0; i < spellbook.KnownSpells.length; i++) {
@@ -1179,7 +1245,6 @@ on('ready', () => {
                             break;
                         }
                     }
-                    reloadCacheFor.push(CacheOptions.Spells);
                 }
             } else if (updateSlot) {
                 const slotIndex = (parseInt(updateSlot) || 0) - 1;
@@ -1189,7 +1254,8 @@ on('ready', () => {
                 } else if (paramName === 'Cur') {
                     spellbook.CurSlots[slotIndex] = newVal;
                 }
-                reloadCacheFor.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyLevels = [slotIndex+1];
             } else if (addPrepList) {
                 for(let i = 0; i < spellbook.PreparationLists.length; i++) {
                     const existingPrepList = spellbook.PreparationLists[i];
@@ -1203,14 +1269,15 @@ on('ready', () => {
                     PreparedSpells: []// Will be formatted as an array of spell names that are prepared when a certain list is active
                 });
 
-                reloadCacheFor.push(CacheOptions.PrepLists);
+                dirtyCaches.push(CacheOptions.PrepLists);
             } else if (setActive) {
                 const activeIndex = parseInt(setActive) || 0;
                 spellbook.ActivePrepList = activeIndex;
 
-                reloadCacheFor.push(CacheOptions.Prepared);
-                reloadCacheFor.push(CacheOptions.Spells);
-                reloadCacheFor.push(CacheOptions.PrepLists);
+                dirtyCaches.push(CacheOptions.Prepared);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.PrepLists);
+                dirtyLevels = CacheOptions.AllSpellLevels;
             } else if (removePrepList) {
                 if (confirm !== 'Yes') {
                     return;
@@ -1222,7 +1289,7 @@ on('ready', () => {
                 }
                 spellbook.PreparationLists.splice(parseInt(removePrepList), 1);
                 
-                reloadCacheFor.push(CacheOptions.PrepLists);
+                dirtyCaches.push(CacheOptions.PrepLists);
             } else if (renamePrepList) {
                 const prepIdToRename = parseInt(renamePrepList);
 
@@ -1242,7 +1309,7 @@ on('ready', () => {
 
                 spellbook.PreparationLists[prepIdToRename].Name = paramValue;
 
-                reloadCacheFor.push(CacheOptions.PrepLists);
+                dirtyCaches.push(CacheOptions.PrepLists);
             } else if (castSpell) {
                 const spell = SpellDict[castSpell];
                 dlog(spellbook.Owner + ' is casting ' + spell.Name + ' with level ' + paramValue + ' when base spell level is ' + spell.Level);
@@ -1279,10 +1346,11 @@ on('ready', () => {
                         instance.CurSlots--;
                     } else {
                         spellbook.CurSlots[level-1]--;
+                        dirtyLevels = [level];// Yes, these two arrays are not indexed the same :(
                     }
                 }
 
-                reloadCacheFor.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Spells);
             } else if (setSlots) {
                 if (setSlots === 'Full') {
                     // Refill spell level slots
@@ -1296,50 +1364,62 @@ on('ready', () => {
                         knownSpell.CurSlots = knownSpell.MaxSlots;
                     }
                 }
-                reloadCacheFor.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyLevels = CacheOptions.AllSpellLevels;
             }
             
             // Filtration
             else if (paramName === 'V') {
                 spellbook.Filter.V = parseInt(paramValue);
-                reloadCacheFor.push(CacheOptions.Spells);
-                reloadCacheFor.push(CacheOptions.Filtering);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Filtering);
+                dirtyLevels = CacheOptions.AllSpellLevels;
             } else if (paramName === 'S') {
                 spellbook.Filter.S = parseInt(paramValue);
-                reloadCacheFor.push(CacheOptions.Spells);
-                reloadCacheFor.push(CacheOptions.Filtering);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Filtering);
+                dirtyLevels = CacheOptions.AllSpellLevels;
             } else if (paramName === 'M') {
                 spellbook.Filter.M = parseInt(paramValue);
-                reloadCacheFor.push(CacheOptions.Spells);
-                reloadCacheFor.push(CacheOptions.Filtering);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Filtering);
+                dirtyLevels = CacheOptions.AllSpellLevels;
             } else if (paramName === 'Ritual') {
                 spellbook.Filter.Ritual = parseInt(paramValue);
-                reloadCacheFor.push(CacheOptions.Spells);
-                reloadCacheFor.push(CacheOptions.Filtering);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Filtering);
+                dirtyLevels = CacheOptions.AllSpellLevels;
             } else if (paramName === 'Slots') {
                 spellbook.Filter.Slots = parseInt(paramValue);
-                reloadCacheFor.push(CacheOptions.Spells);
-                reloadCacheFor.push(CacheOptions.Filtering);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Filtering);
+                dirtyLevels = CacheOptions.AllSpellLevels;
             } else if (paramName === 'Concentration') {
                 spellbook.Filter.Concentration = parseInt(paramValue);
-                reloadCacheFor.push(CacheOptions.Spells);
-                reloadCacheFor.push(CacheOptions.Filtering);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Filtering);
+                dirtyLevels = CacheOptions.AllSpellLevels;
             } else if (paramName === 'Prepared') {
                 spellbook.Filter.Prepared = parseInt(paramValue);
-                reloadCacheFor.push(CacheOptions.Spells);
-                reloadCacheFor.push(CacheOptions.Filtering);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Filtering);
+                dirtyLevels = CacheOptions.AllSpellLevels;
             } else if (paramName === 'Search') {
                 spellbook.Filter.Search = paramValue;
-                reloadCacheFor.push(CacheOptions.Spells);
-                reloadCacheFor.push(CacheOptions.Filtering);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Filtering);
+                dirtyLevels = CacheOptions.AllSpellLevels;
             }
 
-            PrintSpellbook(BookDict[bookName], reloadCacheFor);
+            PrintSpellbook(BookDict[bookName], dirtyCaches, dirtyLevels);
+
+            const stopParse = new Date();
+            const diffParse = stopParse - startParse;
+            dlog('Update Time: ' + diffParse);
             return;
         }
 
         // Remove existing book
-        // !SpellMaster --DeleteBook ^Tazeka's Spellbook^ --Confirm ^Yes^
         const deleteBookTag = '--DeleteBook';
         if (argWords.includes(deleteBookTag)) {
             const bookToDelete = GetParamValue(argParams, 'DeleteBook');
@@ -1354,6 +1434,12 @@ on('ready', () => {
                 GetHandout(spellbook.Handout).set('notes', '');
                 sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Spellbook deleted.`);
             }
+
+            const stopParse = new Date();
+            const diffParse = stopParse - startParse;
+            dlog('Deletion Time: ' + diffParse);
+
+            return;
         }
     });
 
