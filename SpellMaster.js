@@ -21,7 +21,7 @@ on('ready', () => {
     const chatTrigger = '!SpellMaster';// This is the trigger that makes the script listen
     const scname = 'SpellMaster';// How this script shows up when it sends chat messages
     const maxSpellLevel = 10;// My campaign has a few NPCs with 10th-level magic
-    const debugLog = true;
+    const debugLog = false;
 
     // Debug Log
     const dlog = (str) => {
@@ -360,18 +360,18 @@ on('ready', () => {
     const FilterSymbols = ['X', '!', '_'];
 
     // Sends a message to a gm and a player.  If the player is a gm, don't double-send
-    const sendToGmAndPlayer = (chatMessage, msg) => {
+    const sendToGmAndPlayer = (incomingMsg, outgoingMsg) => {
         let sendSuccess = false;
         try {
-            sendChat(scname, `/w "${chatMessage.who.replace(' (GM)', '')}" ${msg}`);
+            sendChat(scname, `/w "${incomingMsg.who.replace(' (GM)', '')}" ${outgoingMsg}`);
             sendSuccess = true;
         }
         catch(e) {
             log('Error sending spellcast: ' + e.Message);
-            log('Spell Text: ' + msg);
+            log('Spell Text: ' + outgoingMsg);
         }
-        if(!sendSuccess || !playerIsGM(chatMessage.playerid)) {
-            sendChat(scname, `/w gm ${msg}`);
+        if(!sendSuccess || !playerIsGM(incomingMsg.playerid)) {
+            sendChat(scname, `/w gm ${outgoingMsg}`);
         }
     };
 
@@ -683,7 +683,8 @@ on('ready', () => {
         if (dirtyCaches.includes(CacheOptions.All) || dirtyCaches.includes(CacheOptions.Tools)) {
             dlog('Rebuilding Tools');
             const fillSlotsLink = CreateLink(`[Long Rest]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --SetSlots ^Full^`);
-            toolsStr += `<b>Tools:</b> ${fillSlotsLink}<br/>`;
+            const flushCacheLink = CreateLink(`[Refresh Cache]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --FlushCache ^Yes^`);
+        toolsStr += `<b>Tools:</b> ${fillSlotsLink} ${flushCacheLink}<br/>`;
             cachedBook.ToolsStr = toolsStr;
         } else {
             dlog('Using Cached Tools');
@@ -930,7 +931,8 @@ on('ready', () => {
                     + `--ImportClass ^?{Please select a spell list to import in its entirety.  Only recommended for Cleric and Druid.|Artificer|Bard|Cleric|Druid|Paladin|Ranger|Shaman|Warlock|Wizard|None}^ `
                     + `--Level ^?{Please input their total spell-caster level.  Do not count pact magic levels.}^)<br/>`
                 + `[Delete Spellbook](!SpellMaster --DeleteBook ^?{Please type the name of the spellbook to delete.}^ --Confirm ^?{Please type Yes to confirm}^)<br/>`
-                + `[Delete Spell](!SpellMaster --UpdateBook ^?{Spellbook Name}^ --RemoveSpell ^?{Spell Name}^ --Confirm ^?{Type Yes to confirm deletion of this spell from this spell list.}^)`
+                + `[Delete Spell](!SpellMaster --UpdateBook ^?{Spellbook Name}^ --RemoveSpell ^?{Spell Name}^ --Confirm ^?{Type Yes to confirm deletion of this spell from this spell list.}^)<br/>`
+                + `[Flush Cache](!SpellMaster --UpdateBook ^?{Spellbook Name}^ --FlushCache ^Yes^)`
                 + `}}`;
             log('Menu: ' + menu);
             sendChat(scname, menu);
@@ -1018,6 +1020,7 @@ on('ready', () => {
                 MaxSlots: GetBaseSpellSlots(type, level)
             };
             log("Successfully created a new spell list!");
+            RefreshCachedBook(BookDict[bookName]);
             PrintSpellbook(BookDict[bookName], [CacheOptions.All], CacheOptions.AllSpellLevels);
             sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Spellbook created.`);
 
@@ -1049,6 +1052,7 @@ on('ready', () => {
             const renamePrepList = GetParamValue(argParams, 'RenamePrepList');
             const castSpell = GetParamValue(argParams, 'CastSpell');
             const setSlots = GetParamValue(argParams, 'SetSlots');
+            const flushCache = GetParamValue(argParams, 'FlushCache');
 
             // Parameters
             const paramName = GetParamValue(argParams, 'ParamName');
@@ -1060,10 +1064,14 @@ on('ready', () => {
             dirtyLevels = [];
 
             // Build the cache if it doesn't already exist.
-            if (!Cache[spellbook.Name]) {
+            if (!Cache[spellbook.Name] || flushCache) {
+                dlog(`Refreshing Cache for ${spellbook.Name}`);
                 RefreshCachedBook(spellbook);
                 dirtyCaches.push(CacheOptions.All);
                 dirtyLevels = CacheOptions.AllSpellLevels;
+                if (flushCache) {
+                    sendChat(scname, `Cache Flushed for ${spellbook.Name}.`);
+                }
             }
 
             // Interaction buttons
@@ -1137,8 +1145,10 @@ on('ready', () => {
                     dirtyCaches.push(CacheOptions.PrepLists);
                 }
             } else if (updateSpell) {
-                dirtyCaches = [CacheOptions.Spells];
-                dirtyLevels = [SpellDict[updateSpell].Level];
+                dirtyCaches.push(CacheOptions.Spells);
+                if (dirtyLevels !== CacheOptions.AllSpellLevels){
+                    dirtyLevels = [SpellDict[updateSpell].Level];
+                }
                 if (paramName === 'Prepared') {
                     dlog(`${spellbook.Owner} is attempting to toggle the preparation of ${updateSpell} to value ${paramValue}`);
                     const prepList = spellbook.PreparationLists[spellbook.ActivePrepList].PreparedSpells;
@@ -1255,7 +1265,10 @@ on('ready', () => {
                     spellbook.CurSlots[slotIndex] = newVal;
                 }
                 dirtyCaches.push(CacheOptions.Spells);
-                dirtyLevels = [slotIndex+1];
+                // This could alter the spell availability of this spell and all below it (aside from cantrips)
+                for (let i = slotIndex+1; i > 0; i--) {
+                    dirtyLevels.push(i);
+                }
             } else if (addPrepList) {
                 for(let i = 0; i < spellbook.PreparationLists.length; i++) {
                     const existingPrepList = spellbook.PreparationLists[i];
@@ -1363,6 +1376,8 @@ on('ready', () => {
                         const knownSpell = spellbook.KnownSpells[i];
                         knownSpell.CurSlots = knownSpell.MaxSlots;
                     }
+
+                    sendChat(scname, `${spellbook.Owner} has finished a long rest to restore ${spellbook.Name}`);
                 }
                 dirtyCaches.push(CacheOptions.Spells);
                 dirtyLevels = CacheOptions.AllSpellLevels;
