@@ -1,4 +1,4 @@
-if (typeof MarkStart != 'undefined') MarkStart('SpellMaster');
+if (typeof MarkStart != 'undefined') {MarkStart('SpellMaster');}
 const SpellDict = {};
 
 const SpellMasterInstall = () => {
@@ -21,7 +21,7 @@ on('ready', () => {
     const chatTrigger = '!SpellMaster';// This is the trigger that makes the script listen
     const scname = 'SpellMaster';// How this script shows up when it sends chat messages
     const maxSpellLevel = 10;// My campaign has a few NPCs with 10th-level magic
-    const debugLog = false;
+    let debugLog = false;
 
     // Debug Log
     const dlog = (str) => {
@@ -54,6 +54,9 @@ on('ready', () => {
     };
     IndexSpellbook();
     log("Spellbook Indexed with " + SpellList.length + " spells.");
+    if (debugLog) {
+        sendChat(scname, '/w gm Spellbook Indexed with ' + SpellList.length + ' spells.');
+    }
 
     // Retrieves a handout by name
     const GetHandout = (nameOrId) => {
@@ -339,7 +342,7 @@ on('ready', () => {
         NameAlpha: (a, b) => {
             const nameA=a.Name.toLowerCase();
             const nameB=b.Name.toLowerCase();
-            if (nameA < nameB) //sort string ascending
+            if (nameA < nameB) // sort string ascending
             {
                 return -1;
             }
@@ -347,7 +350,31 @@ on('ready', () => {
             {
                 return 1;
             }
-            return 0 //default return value (no sorting)
+            return 0 // default return value (no sorting)
+        },
+        LevelName: (a, b) => {
+            // Sort by level first
+            const levelA = a.Level;
+            const levelB = b.Level;
+            if (levelA < levelB) {
+                return -1;
+            } else if (levelA > levelB) {
+                return 1;
+            }
+
+            // Then sort by alpha
+            const nameA=a.Name.toLowerCase();
+            const nameB=b.Name.toLowerCase();
+            if (nameA < nameB) // sort string ascending
+            {
+                return -1;
+            }
+            if (nameA > nameB)
+            {
+                return 1;
+            }
+            return 0 // default return value (no sorting)
+
         }
     };
 
@@ -436,12 +463,13 @@ on('ready', () => {
         text += `<b>- Components:</b> ${componentStr}<br/>`;
         text += `<b>- Duration:</b> ${spell.Duration}<br/>`;
         let descStr = spell.Desc
+            .replace(/\|/g, "<br/>")// In event user is re-importing homebrew
             .replace("Higher Level:", "HLCODE")// This order matters to prevent double-hits
             .replace("Higher Levels:", "HLCODE")
             .replace("At Higher Level:", "HLCODE")
             .replace("Higher level:", "HLCODE")
             .replace("At higher level:", "HLCODE")
-            .replace("HLCODE", '<b>- Higher Levels:</b>');
+            .replace(/HLCODE/g, '<b>- Higher Levels:</b>');
         text += `<b>- Description:</b> ${descStr}<br/>`;
         if(createLinks) {
             const abilityLink = CreateLink('Ability:', `!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^Ability^ --ParamValue ^?{Please select the ability to use when casting this spell.|Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma|Manual DC}^`);
@@ -906,6 +934,242 @@ on('ready', () => {
         dlog(`Print Time with Dirty Cache ${dirtyCaches} and Dirty Levels ${dirtyLevels}: ${diff}`);
     };
 
+    // Capitalizes the first letter of each word.  Numerals are left where they are.
+    const ToTitleCase = (str) => {
+        return str.replace(/\w\S*/g, function(txt){
+            return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+        });
+    };
+
+    // Object containing the tools to parse OGL Sheet Spells
+    const OGLSpell = {
+        // Prefix
+        RepeatingPrefix: 'repeating_spell-',
+        LevelTag: ['cantrip',1,2,3,4,5,6,7,8,9],
+
+        // Suffixes
+        Name: '_spellname',
+        School: '_spellschool',
+        Ritual: '_spellritual',
+        CastTime: '_spellcastingtime',
+        Range: '_spellrange',
+        ComponentV: '_spellcomp_v',
+        ComponentS: '_spellcomp_s',
+        ComponentM: '_spellcomp_m',
+        ComponentMDetails: '_spellcomp_materials',
+        Concentration: '_spellconcentration',
+        Duration: '_spellduration',
+        CastAbility: '_spell_ability',
+        Description: '_spelldescription',
+        HigherLevels: '_spellathigherlevels',
+        Class: '_spellclass',
+        Type: '_spellsource',
+
+        // Builds the prefix string for a given level
+        GetPrefix: (level) => {
+            return OGLSpell.RepeatingPrefix + OGLSpell.LevelTag[level] + '_';
+        },
+
+        // Gets the spell attributes for a given character id and level
+        GetSpellAttrs: (characterId, level) => {
+          const prefix = `repeating_spell-${OGLSpell.LevelTag[level]}`;
+          return _.filter(findObjs({
+            type: "attribute",
+            characterid: characterId
+          }), attr => attr.get("name").startsWith(prefix));
+        },
+
+        // Retrieves only the name attributes for a given char id and level (should be faster)
+        GetSpellNameAttrs: (characterId, level) => {
+            const prefix = `repeating_spell-${OGLSpell.LevelTag[level]}`;
+            const suffix = OGLSpell.Name;
+            const objs = findObjs({
+                type: "attribute",
+                characterid: characterId
+            });
+
+            let nameAttrs = [];
+            for(let i = 0; i < objs.length; i++) {
+                const attr = objs[i];
+                const attrName = attr.get("name");
+                if (attrName.endsWith(suffix) && attrName.startsWith(prefix)) {
+                    nameAttrs.push(attr);
+                }
+            }
+            return nameAttrs;
+        },
+
+        // Gets a dictionary of spells by lowercased name to object ids
+        GetSpellIds: (characterId, level) => {
+          const re = new RegExp(`repeating_spell-${OGLSpell.LevelTag[level]}_([^_]+)${OGLSpell.Name}$`);
+          const spellNameAttrs = OGLSpell.GetSpellNameAttrs(characterId, level);
+          
+          return _.reduce(spellNameAttrs, (lookup, attr) => {
+            const match = attr.get("name").match(re);
+            match && (lookup[attr.get("current").toLowerCase()] = match[1]);
+            return lookup;
+          }, {});
+        },
+
+        // Gets a spell attribute with the provided spellId and suffix
+        GetSpellAttr: (charId, level, spellId, suffix) => {
+            return getattr(charId, OGLSpell.GetPrefix(level) + spellId + suffix);
+        },
+
+        // Loads all the details into a spell object.  If a checkbox is undefined, assume default value.
+        GetSpellDetails: (charId, level, spellId) => {
+            let higherLevels = OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.HigherLevels);
+            higherLevels = higherLevels ? '|' + higherLevels : '';
+
+            // Ritual defaults false
+            let isRitual = OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.Ritual) === '{{ritual=1}}';
+
+            // VSM defaults true
+            let compV = OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.ComponentV);
+            compV = (compV === '' || compV === '{{v=1}}');
+            let compS = OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.ComponentS);
+            compS = (compS === '' || compS === '{{s=1}}');
+            let compM = OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.ComponentM);
+            compM = (compM === '' || compM === '{{m=1}}');
+
+            // Conc defaults false
+            const conc = OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.Concentration) === '{{concentration=1}}' 
+                ? "Concentration, " 
+                : "";
+
+            const spellObj = {
+                Name: ToTitleCase(OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.Name)),
+                Level: level,
+                School: ToTitleCase(OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.School)),
+                IsRitual: isRitual,
+                CastTime: ToTitleCase(OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.CastTime)),
+                Range: OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.Range),
+                Components: {
+                    V: compV,
+                    S: compS,
+                    M: compM,
+                    MDetails: OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.ComponentMDetails)
+                },
+                Duration: conc + OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.Duration),
+                Desc: OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.Description) + higherLevels,
+                Classes: ToTitleCase(OGLSpell.GetSpellAttr(charId, level, spellId, OGLSpell.Class))
+            }
+            return spellObj;
+        },
+
+        // Stringifies a standalone spell obj.  No comma at the very end.
+        StringifySpellObj: (spellObj) => {
+            const desc = spellObj.Desc
+            .replace(/\n|<br\/>|<br \/>|<p>/g,'|')// swap breaks for something we can safely print and copy
+            .replace(/<\/p>/g,'')// remove paragraphing
+            .replace(/\"/g,'\\"');
+
+            const str = ''
+            + `    {<br/>`
+            + `        Name: "${spellObj.Name}",<br/>`
+            + `        Level: ${spellObj.Level},<br/>`
+            + `        School: "${spellObj.School}",<br/>`
+            + `        IsRitual: ${spellObj.IsRitual},<br/>`
+            + `        CastTime: "${spellObj.CastTime}",<br/>`
+            + `        Range: "${spellObj.Range}",<br/>`
+            + `        Components: {<br/>`
+            + `            V: ${spellObj.Components.V},<br/>`
+            + `            S: ${spellObj.Components.S},<br/>`
+            + `            M: ${spellObj.Components.M},<br/>`
+            + `            MDetails: "${spellObj.Components.MDetails}"<br/>`
+            + `        },<br/>`
+            + `        Duration: "${spellObj.Duration}",<br/>`
+            + `        Desc: "${desc}",<br/>`
+            + `        Classes: "${spellObj.Classes}"<br/>`
+            + `    }`
+
+            return str;
+        }
+    };
+
+    // Exports a single spell level
+    const ExportHomebrew = (charName, level) => {
+        const char = GetCharByAny(charName);
+        if (!char) {
+            sendChat(scname, `Character ${charName} does not exist!`);
+            return;
+        }
+        const charId = char.id;
+        let homebrewObjs = [];
+        let newSpellObjs = [];
+
+        // Load homebrew spells
+        sendChat(scname, `[1/4] Loading Level ${level} homebrew spells from ${charName}...`);
+        setTimeout(() => {
+            dlog(`Attempting to gather Spell[${level}] for ${charName}`);
+            const spellsAtLevel = OGLSpell.GetSpellIds(charId, level);
+            dlog(`Gathered ${spellsAtLevel.length} spells.`);
+            for (let spellName in spellsAtLevel) {
+                if (spellsAtLevel.hasOwnProperty(spellName)) {
+                    const spellId = spellsAtLevel[spellName];
+                    dlog(`  Discovered ${spellName}: ${spellId}`);
+                    const spellObj = OGLSpell.GetSpellDetails(charId, level, spellId);
+                    homebrewObjs.push(spellObj);
+                    newSpellObjs.push(spellObj);
+                }
+            }
+    
+            // Import Existing List
+            sendChat(scname, '[2/4] Importing existing spells...');
+            setTimeout(() => {
+                for (let i = 0; i < SpellList.length; i++) {
+                    const existingSpell = SpellList[i];
+                    // Search homebrew for overrides
+                    let overrideExists = false;
+                    for (let j = 0; j < homebrewObjs.length; j++) {
+                        const homebrewSpell = homebrewObjs[j];
+                        if (existingSpell.Name === homebrewSpell.Name) {
+                            overrideExists = true;
+                            break;
+                        }
+                    }
+                    if (!overrideExists) {
+                        newSpellObjs.push(existingSpell);
+                    }
+                }
+                newSpellObjs.sort(Sorters.LevelName);
+        
+                // Stringify the new list
+                sendChat(scname, '[3/4] Stringifying new spell list...');
+                setTimeout(() => {
+                    let isFirst = true;
+                    let spellListString = '<pre>';
+                    spellListString += `if (typeof MarkStart != 'undefined') {MarkStart('SpellList');}<br/>`;
+                    spellListString += `var SpellList = [<br/>`;
+                    for (let i = 0; i < newSpellObjs.length; i++) {
+                        const spellObj = newSpellObjs[i];
+                        const spellString = OGLSpell.StringifySpellObj(spellObj);
+                        if (isFirst) {
+                            isFirst = false;
+                            spellListString += spellString;
+                        } else {
+                            spellListString += ',<br/>' + spellString;
+                        }
+                    }
+                    spellListString += '];<br/>';
+                    spellListString += `if (typeof MarkStop != 'undefined') {MarkStop('SpellList');}<br/>`;
+                    spellListString += '</pre>';
+                    
+                    // Print to notes section
+                    sendChat(scname, '[4/4] Exporting...');
+                    setTimeout(() => {
+                        dlog(spellListString);
+                        char.set('bio', spellListString);
+                        sendChat(scname, 'EXPORT COMPLETE');
+            
+                    },500);
+        
+                },500);
+            },500);
+
+        },500);
+    };
+
     // Process chat messages
     on('chat:message', (msg) => {
         if (msg.type !== 'api') return;
@@ -932,7 +1196,10 @@ on('ready', () => {
                     + `--Level ^?{Please input their total spell-caster level.  Do not count pact magic levels.}^)<br/>`
                 + `[Delete Spellbook](!SpellMaster --DeleteBook ^?{Please type the name of the spellbook to delete.}^ --Confirm ^?{Please type Yes to confirm}^)<br/>`
                 + `[Delete Spell](!SpellMaster --UpdateBook ^?{Spellbook Name}^ --RemoveSpell ^?{Spell Name}^ --Confirm ^?{Type Yes to confirm deletion of this spell from this spell list.}^)<br/>`
-                + `[Flush Cache](!SpellMaster --UpdateBook ^?{Spellbook Name}^ --FlushCache ^Yes^)`
+                + `[Flush Cache](!SpellMaster --UpdateBook ^?{Spellbook Name}^ --FlushCache ^Yes^)<br/>`
+                + `[Export Homebrew](!SpellMaster --ExportHomebrew ^?{Please type the name of the character sheet to export house ruled spells from.  Be warned that SpellMaster will overwrite its Bio and Info tab}^ `
+                    + `--ExportLevel ^?{Please select the level you'd like to export|Cantrip,0|Level 1,1|Level 2,2|Level 3,3|Level 4,4|Level 5,5|Level 6,6|Level 7,7|Level 8,8|Level 9,9}^)<br/>`
+                + `[Set Debug Mode](!SpellMaster --SetDebug ^?{Set the logging level|Debug|Normal}^)<br/>`
                 + `}}`;
             log('Menu: ' + menu);
             sendChat(scname, menu);
@@ -1456,6 +1723,25 @@ on('ready', () => {
 
             return;
         }
+
+        const exportHomebrewTag = '--ExportHomebrew';
+        if (argWords.includes(exportHomebrewTag)) {
+            const charName = GetParamValue(argParams, 'ExportHomebrew');
+            const exportLevel = parseInt(GetParamValue(argParams, 'ExportLevel'));
+            if (isNaN(exportLevel)) {
+                sendChat(scname, 'Export level given was not a number.');
+                return;
+            }
+            ExportHomebrew(charName, exportLevel);
+            return;
+        }
+
+        const debugTag = '--SetDebug';
+        if (argWords.includes(debugTag)) {
+            debugLog = GetParamValue(argParams, 'SetDebug') === 'Debug';
+            sendChat(scname, 'Debug Mode: ' + debugLog);
+            return;
+        }
     });
 
     // Perform garbage collection on orphaned spellbooks
@@ -1479,4 +1765,4 @@ on('ready', () => {
     PurgeOldSpellbooks();
 });
 
-if (typeof MarkStop != 'undefined') MarkStop('SpellMaster');
+if (typeof MarkStop != 'undefined') {MarkStop('SpellMaster');}
