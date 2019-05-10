@@ -132,7 +132,6 @@ public class Parser {
         classes = classList.toString();
         classes = classes.replace("[", "");
         classes = classes.replace("]", "");
-        
         return new Spell(name, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
     }
     
@@ -367,9 +366,12 @@ public class Parser {
         
         // Spellbook JS
         try {
-            PrintWriter jsPW = new PrintWriter("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\SpellbookConst.js");
-            jsPW.println("if (typeof MarkStart != 'undefined') MarkStart('SpellList');");
-            jsPW.println("const SpellList = [");
+            String outputDestination = srdOnly
+                ? "D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\SRD.js"
+                : "D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\SpellbookConst.js";
+            PrintWriter jsPW = new PrintWriter(outputDestination);
+            jsPW.println("if (typeof MarkStart != 'undefined') {MarkStart('SpellList');}");
+            jsPW.println("var SpellList = [");
             for(int i = 0; i < spells.size(); i++) {
                 Spell spell = spells.get(i);
                 if (srdOnly && spell.Classes.indexOf("SRD") == -1) {
@@ -388,7 +390,7 @@ public class Parser {
                 jsPW.flush();
             }
             jsPW.println("];");
-            jsPW.println("if (typeof MarkStop != 'undefined') MarkStop('SpellList');");
+            jsPW.println("if (typeof MarkStop != 'undefined') {MarkStop('SpellList');}");
             jsPW.flush();
         } catch(Exception e){
             System.err.println("Exception: " + e.toString());
@@ -396,7 +398,7 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        boolean srdOnly = false;
-        Parser parser = new Parser(srdOnly);
+        new Parser(true);
+        new Parser(false);
     }
 }
