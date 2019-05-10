@@ -25,6 +25,8 @@ out/
 *.rar
 *.tar
 *.zip
+*.jdb
+*.cdi
 
 # Specific Files #
 ##################
