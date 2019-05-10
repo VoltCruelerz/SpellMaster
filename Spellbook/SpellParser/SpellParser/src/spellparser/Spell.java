@@ -43,7 +43,13 @@ public class Spell implements Comparable<Spell>{
         String tab = "    ";
         String quote = "\"";
         String comma = ",";
+        String backslash = "\\";
         String newLine = "\n";
+        String divOpen = "<div>";
+        String divClose = "</div>";
+        
+        String escapedQuoteDesc = Desc.replace(quote, backslash + quote).replace(divOpen, "").replace(divClose, "");
+        String beautifiedDesc = escapedQuoteDesc.replace(newLine, "|" + quote + newLine + tab + tab + "+ " + quote);
         
         String str = tab + "{" + newLine;
         str = str + tab + tab + "Name: " + quote + Name + quote + comma + newLine;
@@ -54,7 +60,7 @@ public class Spell implements Comparable<Spell>{
         str = str + tab + tab + "Range: " + quote + Range + quote + comma + newLine;
         str = str + tab + tab + "Components: " + Components.PrintJS() + comma + newLine;
         str = str + tab + tab + "Duration: " + quote + Duration + quote + comma + newLine;
-        str = str + tab + tab + "Desc: " + quote + Desc.replace(quote, "\\\"").replace(newLine, "<br/>" + quote + newLine + tab + tab + "+ " + quote) + quote + comma + newLine;
+        str = str + tab + tab + "Desc: " + quote + beautifiedDesc + quote + comma + newLine;
         str = str + tab + tab + "Classes: " + quote + Classes + quote + newLine;
         str = str + tab + "}";
         return str;
