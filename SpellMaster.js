@@ -1,15 +1,20 @@
 if (typeof MarkStart != 'undefined') {MarkStart('SpellMaster');}
+
+// SpellMaster - 5e OGL Sheet Spell Manager
+// By: Michael G. (Volt Cruelerz)
+// Github: https://github.com/VoltCruelerz/SpellMaster
+
 const SpellDict = {};
 
 const SpellMasterInstall = () => {
     const defaultSettings = {
         Sheet: 'OGL',
-        Version: 1.2
+        Version: 1.3
     };
     if(!state.SpellMaster) {
         state.SpellMaster = defaultSettings;
     }
-    if (!state.SpellMaster.Version) {
+    if (!state.SpellMaster.Version || state.SpellMaster.Version < defaultSettings.Version) {
         state.SpellMaster.Version = defaultSettings.Version;
     }
 }
@@ -42,7 +47,10 @@ on('ready', () => {
     let SpellsIndexed = false;
 
     // A cache of data so not everything is recreated every time the page is drawn.
-    const Cache = {};
+    const Cache = {
+        Books: {},
+        Exports: {}
+    };
 
     // Creates dictionary of spell
     const IndexSpellbook = () => {
@@ -403,7 +411,7 @@ on('ready', () => {
     };
 
     const GetMaxPreparationString = (char, spellbook) => {
-        let cachedBook = Cache[spellbook.Name];
+        let cachedBook = Cache.Books[spellbook.Name];
         const classDisplay = GetCachedAttr(char, cachedBook, 'class_display');
         const leveledClasses = classDisplay.split(',');
         let prepString = '';
@@ -498,7 +506,7 @@ on('ready', () => {
     // Prints the spell to the chat when casting a spell
     const PrintSpell = (book, instance, spell, castLevel, chatMessage) => {
         const char = GetCharByAny(book.Owner);
-        let cachedBook = Cache[book.Name];
+        let cachedBook = Cache.Books[book.Name];
         const whisperToggle = GetCachedAttr(char, cachedBook, 'whispertoggle') === '/w gm ';
 
         let dc = 0;
@@ -637,7 +645,7 @@ on('ready', () => {
         const stopCache = new Date();
         const diffCache = stopCache - startCache;
         dlog('Initial Sheet Caching: ' + diffCache);
-        Cache[spellbook.Name] = cachedBook;
+        Cache.Books[spellbook.Name] = cachedBook;
         return cachedBook;
     };
 
@@ -660,6 +668,7 @@ on('ready', () => {
     // Prints a spellbook out to its handout.
     // spellbook: the spellbook object
     // dirtyCaches: an array of CacheOptions that must be rebuilt.
+    // dirtyLevels: an array of spell levels to be rebuilt.
     const PrintSpellbook = (spellbook, dirtyCaches, dirtyLevels) => {
         const startTime = new Date();
         const activePrepList = spellbook.PreparationLists[spellbook.ActivePrepList];
@@ -667,7 +676,7 @@ on('ready', () => {
         let text = "";
         let br = "<br/>";
         let hr = "<hr>";
-        let cachedBook = Cache[spellbook.Name];
+        let cachedBook = Cache.Books[spellbook.Name];
 
         // =================================================================================
         // Owner
@@ -1087,20 +1096,16 @@ on('ready', () => {
         }
     };
 
-    // Exports a single spell level
-    const ExportHomebrew = (charName, level) => {
-        const char = GetCharByAny(charName);
-        if (!char) {
-            sendChat(scname, `Character ${charName} does not exist!`);
-            return;
-        }
+    // Loads a single spell level
+    const LoadHomebrewLevel = async (char, charName, level) => {
         const charId = char.id;
-        let homebrewObjs = [];
-        let newSpellObjs = [];
+        const exportCache = Cache.Exports[charName];
+        let homebrewObjs = exportCache.HomebrewObjs;
+        let newSpellObjs = exportCache.NewSpellObjs;
 
         // Load homebrew spells
-        sendChat(scname, `[1/4] Loading Level ${level} homebrew spells from ${charName}...`);
-        setTimeout(() => {
+        sendChat(scname, `[${level+1}/13] Loading Level ${level} homebrew spells from ${charName}...`);
+        _.defer(() => {
             dlog(`Attempting to gather Spell[${level}] for ${charName}`);
             const spellsAtLevel = OGLSpell.GetSpellIds(charId, level);
             dlog(`Gathered ${spellsAtLevel.length} spells.`);
@@ -1113,62 +1118,112 @@ on('ready', () => {
                     newSpellObjs.push(spellObj);
                 }
             }
+            sendChat(scname, `[${level+1}/13] Finished Level ${level}.`);
     
-            // Import Existing List
-            sendChat(scname, '[2/4] Importing existing spells...');
-            setTimeout(() => {
-                for (let i = 0; i < SpellList.length; i++) {
-                    const existingSpell = SpellList[i];
-                    // Search homebrew for overrides
-                    let overrideExists = false;
-                    for (let j = 0; j < homebrewObjs.length; j++) {
-                        const homebrewSpell = homebrewObjs[j];
-                        if (existingSpell.Name === homebrewSpell.Name) {
-                            overrideExists = true;
-                            break;
-                        }
-                    }
-                    if (!overrideExists) {
-                        newSpellObjs.push(existingSpell);
+            // Update counter
+            exportCache.CompleteLevels++;
+            dlog(`Finished Level ${level}.  Current status: ${exportCache.CompleteLevels}/10`);
+    
+            // Spin off assembly if all levels complete
+            if (exportCache.CompleteLevels === 10) {
+                dlog('Scheduling Assembly.');
+                _.defer(AssembleHomebrew, char, charName);
+            } else {
+                _.defer(LoadHomebrewLevel, char, charName, level+1);
+            }
+        });
+    };
+
+    // Assemble homebrew spells with the stock list
+    const AssembleHomebrew = async (char, charName) => {
+        dlog('Beginning Homebrew Assembly...');
+        const exportCache = Cache.Exports[charName];
+        let homebrewObjs = exportCache.HomebrewObjs;
+        let newSpellObjs = exportCache.NewSpellObjs;
+
+        // Import Existing List
+        sendChat(scname, '[11/13] Importing existing spells...');
+        _.defer(() => {
+            dlog('Importing existing spells...');
+            for (let i = 0; i < SpellList.length; i++) {
+                const existingSpell = SpellList[i];
+                // Search homebrew for overrides
+                let overrideExists = false;
+                for (let j = 0; j < homebrewObjs.length; j++) {
+                    const homebrewSpell = homebrewObjs[j];
+                    if (existingSpell.Name === homebrewSpell.Name) {
+                        overrideExists = true;
+                        break;
                     }
                 }
-                newSpellObjs.sort(Sorters.LevelName);
-        
-                // Stringify the new list
-                sendChat(scname, '[3/4] Stringifying new spell list...');
-                setTimeout(() => {
-                    let isFirst = true;
-                    let spellListString = '<pre>';
-                    spellListString += `if (typeof MarkStart != 'undefined') {MarkStart('SpellList');}<br/>`;
-                    spellListString += `var SpellList = [<br/>`;
-                    for (let i = 0; i < newSpellObjs.length; i++) {
-                        const spellObj = newSpellObjs[i];
-                        const spellString = OGLSpell.StringifySpellObj(spellObj);
-                        if (isFirst) {
-                            isFirst = false;
-                            spellListString += spellString;
-                        } else {
-                            spellListString += ',<br/>' + spellString;
-                        }
+                if (!overrideExists) {
+                    newSpellObjs.push(existingSpell);
+                }
+            }
+            newSpellObjs.sort(Sorters.LevelName);
+    
+            // Stringify the new list
+            sendChat(scname, '[12/13] Stringifying new spell list...');
+            _.defer(() => {
+                dlog('Stringifying new spell list...');
+                let isFirst = true;
+                let spellListString = '<pre>';
+                spellListString += `if (typeof MarkStart != 'undefined') {MarkStart('SpellList');}<br/>`;
+                spellListString += `var SpellList = [<br/>`;
+                for (let i = 0; i < newSpellObjs.length; i++) {
+                    const spellObj = newSpellObjs[i];
+                    const spellString = OGLSpell.StringifySpellObj(spellObj);
+                    if (isFirst) {
+                        isFirst = false;
+                        spellListString += spellString;
+                    } else {
+                        spellListString += ',<br/>' + spellString;
                     }
-                    spellListString += '];<br/>';
-                    spellListString += `if (typeof MarkStop != 'undefined') {MarkStop('SpellList');}<br/>`;
-                    spellListString += '</pre>';
-                    
-                    // Print to notes section
-                    sendChat(scname, '[4/4] Exporting...');
-                    setTimeout(() => {
-                        dlog(spellListString);
-                        char.set('bio', spellListString);
-                        sendChat(scname, 'EXPORT COMPLETE');
-            
-                    },500);
-        
-                },500);
-            },500);
+                }
+                spellListString += '];<br/>';
+                spellListString += `if (typeof MarkStop != 'undefined') {MarkStop('SpellList');}<br/>`;
+                spellListString += '</pre>';
+                
+                // Print to notes section
+                sendChat(scname, '[13/13] Exporting...');
+                _.defer(() => {
+                    dlog('Exporting spell list...');
+                    char.set('bio', spellListString);
+                    sendChat(scname, 'EXPORT COMPLETE');
+                    dlog('Finished Export after ' + (new Date() - exportCache.Timer));
+                });
+            });
+        });
+    }
 
-        },500);
-    };
+    // Asynchronously exports homebrew material
+    const ExportHomebrew = (charName) => {
+        const char = GetCharByAny(charName);
+        if (!char) {
+            sendChat(scname, `Character ${charName} does not exist!`);
+            return;
+        }
+
+        // Prevent doing this twice
+        const oldCache = Cache.Exports[charName];
+        if (oldCache && oldCache.CompleteLevels < 10) {
+            sendChat(scname, `WARNING: Another export operation for this character is already in progress and has completed ${oldCache.CompleteLevels} levels.`);
+            return;
+        }
+
+        // Begin making new cache
+        const exportCache = {
+            CompleteLevels: 0,
+            HomebrewObjs: [],
+            NewSpellObjs: [],
+            Timer: new Date()
+        }
+        Cache.Exports[charName] = exportCache;
+
+        // Begin operation
+        sendChat(scname, 'STARTING ASYNC EXPORT');
+        _.defer(LoadHomebrewLevel, char, charName, 0);
+    }
 
     // Process chat messages
     on('chat:message', (msg) => {
@@ -1197,8 +1252,7 @@ on('ready', () => {
                 + `[Delete Spellbook](!SpellMaster --DeleteBook ^?{Please type the name of the spellbook to delete.}^ --Confirm ^?{Please type Yes to confirm}^)<br/>`
                 + `[Delete Spell](!SpellMaster --UpdateBook ^?{Spellbook Name}^ --RemoveSpell ^?{Spell Name}^ --Confirm ^?{Type Yes to confirm deletion of this spell from this spell list.}^)<br/>`
                 + `[Flush Cache](!SpellMaster --UpdateBook ^?{Spellbook Name}^ --FlushCache ^Yes^)<br/>`
-                + `[Export Homebrew](!SpellMaster --ExportHomebrew ^?{Please type the name of the character sheet to export house ruled spells from.  Be warned that SpellMaster will overwrite its Bio and Info tab}^ `
-                    + `--ExportLevel ^?{Please select the level you'd like to export|Cantrip,0|Level 1,1|Level 2,2|Level 3,3|Level 4,4|Level 5,5|Level 6,6|Level 7,7|Level 8,8|Level 9,9}^)<br/>`
+                + `[Export Homebrew](!SpellMaster --ExportHomebrew ^?{Please type the name of the character sheet to export house ruled spells from.  Be warned that SpellMaster will overwrite its Bio and Info tab}^)<br/>`
                 + `[Set Debug Mode](!SpellMaster --SetDebug ^?{Set the logging level|Debug|Normal}^)<br/>`
                 + `}}`;
             log('Menu: ' + menu);
@@ -1331,7 +1385,7 @@ on('ready', () => {
             dirtyLevels = [];
 
             // Build the cache if it doesn't already exist.
-            if (!Cache[spellbook.Name] || flushCache) {
+            if (!Cache.Books[spellbook.Name] || flushCache) {
                 dlog(`Refreshing Cache for ${spellbook.Name}`);
                 RefreshCachedBook(spellbook);
                 dirtyCaches.push(CacheOptions.All);
@@ -1724,18 +1778,15 @@ on('ready', () => {
             return;
         }
 
+        // Exports homebrew spells from a char sheet to js
         const exportHomebrewTag = '--ExportHomebrew';
         if (argWords.includes(exportHomebrewTag)) {
             const charName = GetParamValue(argParams, 'ExportHomebrew');
-            const exportLevel = parseInt(GetParamValue(argParams, 'ExportLevel'));
-            if (isNaN(exportLevel)) {
-                sendChat(scname, 'Export level given was not a number.');
-                return;
-            }
-            ExportHomebrew(charName, exportLevel);
+            ExportHomebrew(charName);
             return;
         }
 
+        // Sets or unsets the debugLog flag
         const debugTag = '--SetDebug';
         if (argWords.includes(debugTag)) {
             debugLog = GetParamValue(argParams, 'SetDebug') === 'Debug';
