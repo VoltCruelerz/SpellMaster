@@ -9,7 +9,7 @@ const SpellDict = {};
 const SpellMasterInstall = () => {
     const defaultSettings = {
         Sheet: 'OGL',
-        Version: 1.3
+        Version: 1.31
     };
     if(!state.SpellMaster) {
         state.SpellMaster = defaultSettings;
@@ -420,7 +420,7 @@ on('ready', () => {
             const className = classDetails[classDetails.length-2];
             const classLevel = parseInt(classDetails[classDetails.length-1]);
             if (className === 'Cleric' || className === 'Druid' || className === 'Shaman') {
-                const statMod = GetCachedAttr(char, cachedBook, char.id, 'wisdom_mod') || 0;
+                const statMod = GetCachedAttr(char, cachedBook, 'wisdom_mod') || 0;
                 prepString += `/ ${classLevel + statMod} (${className}) `;
             } else if (className === 'Wizard' || className === 'Artificer') {
                 const statMod = GetCachedAttr(char, cachedBook, 'intelligence_mod') || 0;
