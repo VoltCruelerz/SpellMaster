@@ -9,10 +9,29 @@ const SpellDict = {};
 const SpellMasterInstall = () => {
     const defaultSettings = {
         Sheet: 'OGL',
-        Version: 1.31
+        Version: 1.4
     };
     if(!state.SpellMaster) {
         state.SpellMaster = defaultSettings;
+    }
+
+    // Update version
+    let BookDict = state.SpellMaster;
+    for (var bookName in BookDict) {
+        // check if the property/key is defined in the object itself, not in parent
+        if (BookDict.hasOwnProperty(bookName)) {
+            const spellBook = BookDict[bookName];
+
+            // Version 1.31 -> 1.4 add Filter.CastTime
+            if (state.SpellMaster.Version < 1.4) {
+                if (spellBook.Filter) {
+                    if (!spellBook.Filter.CastTime) {
+                        spellBook.Filter.CastTime = 'Any';
+                        log(`Migrating Spellbook ${spellBook.Name} to version 1.4`);
+                    }
+                }
+            }
+        }
     }
     if (!state.SpellMaster.Version || state.SpellMaster.Version < defaultSettings.Version) {
         state.SpellMaster.Version = defaultSettings.Version;
@@ -701,12 +720,13 @@ on('ready', () => {
             const vFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.V]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^V^ --ParamValue ^?{Please enter the new filter option|V,${Filters.WithFlag}|No-V,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
             const sFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.S]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^S^ --ParamValue ^?{Please enter the new filter option|S,${Filters.WithFlag}|No-S,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
             const mFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.M]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^M^ --ParamValue ^?{Please enter the new filter option|M,${Filters.WithFlag}|No-M,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
+            const castFilter = CreateLink(`[${spellbook.Filter.CastTime}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^CastTime^ --ParamValue ^?{Please enter the new filter option|1 Action|1 Bonus Action|Special|Combat|Noncombat|Any}^`);
             const concFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.Concentration]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Concentration^ --ParamValue ^?{Please enter the new filter option|Concentration,${Filters.WithFlag}|No-Concentration,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
             const rituFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.Ritual]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Ritual^ --ParamValue ^?{Please enter the new filter option|Ritual,${Filters.WithFlag}|No-Ritual,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
             const prepFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.Prepared]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Prepared^ --ParamValue ^?{Please enter the new filter option|Prepared,${Filters.WithFlag}|No-Prepared,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
             const slotsFilter = CreateLink(`[${FilterSymbols[spellbook.Filter.Slots]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Slots^ --ParamValue ^?{Please enter the new filter option|Slots Remaining,${Filters.WithFlag}|Slots Empty,${Filters.WithoutFlag}|No Filter,${Filters.NotApplicable}}^`);
             const searchFilter = CreateLink(`["${spellbook.Filter.Search}"]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ParamName ^Search^ --ParamValue ^?{Please enter the new search string}^`);
-            filterStr += `<b>Filtering:</b> ${vFilter} V ${sFilter} S ${mFilter} M - ${concFilter} Concentration - ${rituFilter} Ritual - ${prepFilter} Prepared - ${slotsFilter} Slots Remaining - ${searchFilter} Search<br/>`;
+            filterStr += `<b>Filtering:</b> ${vFilter} V ${sFilter} S ${mFilter} M - ${castFilter} Casting Time - ${concFilter} Concentration - ${rituFilter} Ritual - ${prepFilter} Prepared - ${slotsFilter} Slots Remaining - ${searchFilter} Search<br/>`;
             cachedBook.FilteringStr = filterStr;
         } else {
             dlog('Using Cached Filtering');
@@ -794,36 +814,55 @@ on('ready', () => {
                     }
 
                     // Check filtering
-                    if ((spellbook.Filter.V === Filters.WithFlag && !spell.Components.V) 
-                        || (spellbook.Filter.V === Filters.WithoutFlag && spell.Components.V)) {
-                        return;
-                    }
-                    if ((spellbook.Filter.S === Filters.WithFlag && !spell.Components.S) 
-                        || (spellbook.Filter.S === Filters.WithoutFlag && spell.Components.S)) {
-                        return;
-                    }
-                    if ((spellbook.Filter.M === Filters.WithFlag && !spell.Components.M) 
-                        || (spellbook.Filter.M === Filters.WithoutFlag && spell.Components.M)) {
-                        return;
-                    }
-                    if ((spellbook.Filter.Concentration === Filters.WithFlag && spell.Duration.toLowerCase().indexOf('concentration') === -1) 
-                        || (spellbook.Filter.Concentration === Filters.WithoutFlag && spell.Duration.toLowerCase().indexOf('concentration') > -1)) {
-                        return;
-                    }
-                    if ((spellbook.Filter.Ritual === Filters.WithFlag && !spell.IsRitual) 
-                        || (spellbook.Filter.Ritual === Filters.WithoutFlag && spell.IsRitual)) {
-                        return;
-                    }
-    
-                    if (spellbook.Filter.Search.length > 0 
-                        && !(spell.Name.includes(spellbook.Filter.Search) 
+                    if (spellbook.Filter) {
+                        if ((spellbook.Filter.V === Filters.WithFlag && !spell.Components.V) 
+                            || (spellbook.Filter.V === Filters.WithoutFlag && spell.Components.V)) {
+                            return;
+                        }
+                        if ((spellbook.Filter.S === Filters.WithFlag && !spell.Components.S) 
+                            || (spellbook.Filter.S === Filters.WithoutFlag && spell.Components.S)) {
+                            return;
+                        }
+                        if ((spellbook.Filter.M === Filters.WithFlag && !spell.Components.M) 
+                            || (spellbook.Filter.M === Filters.WithoutFlag && spell.Components.M)) {
+                            return;
+                        }
+                        if ((spellbook.Filter.Concentration === Filters.WithFlag && spell.Duration.toLowerCase().indexOf('concentration') === -1) 
+                            || (spellbook.Filter.Concentration === Filters.WithoutFlag && spell.Duration.toLowerCase().indexOf('concentration') > -1)) {
+                            return;
+                        }
+                        if ((spellbook.Filter.Ritual === Filters.WithFlag && !spell.IsRitual) 
+                            || (spellbook.Filter.Ritual === Filters.WithoutFlag && spell.IsRitual)) {
+                            return;
+                        }
+                        if (spellbook.Filter.Search.length > 0) {
+                            if (!(spell.Name.includes(spellbook.Filter.Search) 
                             || spell.Components.MDetails.includes(spellbook.Filter.Search) 
                             || spell.Desc.includes(spellbook.Filter.Search) 
                             || spell.Duration.includes(spellbook.Filter.Search) 
                             || spellInstance.Notes.includes(spellbook.Filter.Search)
                             || (spell.Ability && spell.Ability.includes(spellbook.Filter.Search)) 
                             || spell.Classes.includes(spellbook.Filter.Search))) {
-                        return;
+                                return;
+                            }
+                        }
+                        if (spellbook.Filter.CastTime !== 'Any') {
+                            const filterCast = spellbook.Filter.CastTime;
+                            const spellCast = spell.CastTime;
+                            if (filterCast !== spellCast) {
+                                const spellCastCombat = spellCast === '1 Action' || spellCast === '1 Bonus Action';
+                                if (filterCast === 'Combat' && !spellCastCombat) {
+                                    return;
+                                }
+                                if (filterCast === 'Noncombat' && spellCastCombat) {
+                                    return;
+                                }
+                                const filterIsSpecific = filterCast === '1 Action' || filterCast === '1 Bonus Action' || filterCast === 'Special';
+                                if (filterIsSpecific) {
+                                    return;
+                                }
+                            }
+                        }
                     }
                     
                     // Create the preparation button.
@@ -1102,6 +1141,8 @@ on('ready', () => {
         const exportCache = Cache.Exports[charName];
         let homebrewObjs = exportCache.HomebrewObjs;
         let newSpellObjs = exportCache.NewSpellObjs;
+        let deleteDict = exportCache.DeleteDict;
+        let renameDict = exportCache.RenameDict;
 
         // Load homebrew spells
         sendChat(scname, `[${level+1}/13] Loading Level ${level} homebrew spells from ${charName}...`);
@@ -1114,6 +1155,29 @@ on('ready', () => {
                     const spellId = spellsAtLevel[spellName];
                     dlog(`  Discovered ${spellName}: ${spellId}`);
                     const spellObj = OGLSpell.GetSpellDetails(charId, level, spellId);
+                    // Check for renames and deletes
+                    const nameParams = spellObj.Name.split('|');
+                    if (nameParams.length > 1) {
+                        if (nameParams[0].toUpperCase() === 'RENAME') {
+                            if (nameParams.length !== 3) {
+                                sendChat(scname, 'ERROR: Unable to parse rename of ' + spellObj.Name);
+                            }
+                            const oldName = nameParams[1];
+                            const newName = nameParams[2];
+                            spellObj.Name = newName;
+                            renameDict[newName] = oldName;
+                            dlog(`    RENAME: ${oldName} to ${newName}`);
+                        } else if (nameParams[0].toUpperCase() === 'DELETE') {
+                            if (nameParams.length !== 2) {
+                                sendChat(scname, 'ERROR: Unable to parse delete of ' + spellObj.Name);
+                            }
+                            const deleteableName = nameParams[1];
+                            spellObj.Name = deleteableName;
+                            deleteDict[deleteableName.toUpperCase()] = true;
+                            dlog(`    DELETE: ${deleteableName}`);
+                            continue;
+                        }
+                    }
                     homebrewObjs.push(spellObj);
                     newSpellObjs.push(spellObj);
                 }
@@ -1140,6 +1204,8 @@ on('ready', () => {
         const exportCache = Cache.Exports[charName];
         let homebrewObjs = exportCache.HomebrewObjs;
         let newSpellObjs = exportCache.NewSpellObjs;
+        let deleteDict = exportCache.DeleteDict;
+        let renameDict = exportCache.RenameDict;
 
         // Import Existing List
         sendChat(scname, '[11/13] Importing existing spells...');
@@ -1147,15 +1213,33 @@ on('ready', () => {
             dlog('Importing existing spells...');
             for (let i = 0; i < SpellList.length; i++) {
                 const existingSpell = SpellList[i];
+                // Check for spell deletion
+                if(deleteDict[existingSpell.Name.toUpperCase()]) {
+                    dlog(`  SKIP DELETED: ${existingSpell.Name}`);
+                    continue;
+                }
+
                 // Search homebrew for overrides
                 let overrideExists = false;
                 for (let j = 0; j < homebrewObjs.length; j++) {
                     const homebrewSpell = homebrewObjs[j];
-                    if (existingSpell.Name === homebrewSpell.Name) {
+
+                    // Basic comparison
+                    if (existingSpell.Name.toUpperCase() === homebrewSpell.Name.toUpperCase()) {
+                        overrideExists = true;
+                        break;
+                    }
+
+                    // Check for renames 
+                    const oldName = renameDict[homebrewSpell.Name];
+                    if (oldName && existingSpell.Name.toUpperCase() === oldName.toUpperCase()) {
+                        dlog(`  RENAME OVERRIDE: ${oldName} = ${homebrewSpell.Name}`);
                         overrideExists = true;
                         break;
                     }
                 }
+
+                // If we haven't inserted an overriding homebrew spell, add the default
                 if (!overrideExists) {
                     newSpellObjs.push(existingSpell);
                 }
@@ -1216,6 +1300,8 @@ on('ready', () => {
             CompleteLevels: 0,
             HomebrewObjs: [],
             NewSpellObjs: [],
+            DeleteDict: {},
+            RenameDict: {},
             Timer: new Date()
         }
         Cache.Exports[charName] = exportCache;
@@ -1329,6 +1415,7 @@ on('ready', () => {
                     V: Filters.NotApplicable,
                     S: Filters.NotApplicable,
                     M: Filters.NotApplicable,
+                    CastTime: "Any",
                     Concentration: Filters.NotApplicable,
                     Ritual: Filters.NotApplicable,
                     Slots: Filters.WithFlag,
@@ -1742,6 +1829,11 @@ on('ready', () => {
                 dirtyLevels = CacheOptions.AllSpellLevels;
             } else if (paramName === 'Search') {
                 spellbook.Filter.Search = paramValue;
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyCaches.push(CacheOptions.Filtering);
+                dirtyLevels = CacheOptions.AllSpellLevels;
+            } else if (paramName === 'CastTime') {
+                spellbook.Filter.CastTime = paramValue;
                 dirtyCaches.push(CacheOptions.Spells);
                 dirtyCaches.push(CacheOptions.Filtering);
                 dirtyLevels = CacheOptions.AllSpellLevels;
