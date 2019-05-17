@@ -633,7 +633,7 @@ var SpellList = [
         Name: "Detect Poison and Disease",
         Level: 1,
         School: "Divination",
-        IsRitual: false,
+        IsRitual: true,
         CastTime: "1 Action",
         Range: "Self",
         Components: {
