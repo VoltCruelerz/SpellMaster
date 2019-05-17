@@ -9,7 +9,7 @@ const SpellDict = {};
 const SpellMasterInstall = () => {
     const defaultSettings = {
         Sheet: 'OGL',
-        Version: 1.4
+        Version: 1.41
     };
     if(!state.SpellMaster) {
         state.SpellMaster = defaultSettings;
@@ -854,7 +854,7 @@ on('ready', () => {
                                 if (filterCast === 'Combat' && !spellCastCombat) {
                                     return;
                                 }
-                                if (filterCast === 'Noncombat' && spellCastCombat) {
+                                if (filterCast === 'Noncombat' && spellCastCombat && !spell.IsRitual) {
                                     return;
                                 }
                                 const filterIsSpecific = filterCast === '1 Action' || filterCast === '1 Bonus Action' || filterCast === 'Special';
