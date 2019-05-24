@@ -45,21 +45,21 @@ on('ready', () => {
     const chatTrigger = '!SpellMaster';// This is the trigger that makes the script listen
     const scname = 'SpellMaster';// How this script shows up when it sends chat messages
     const maxSpellLevel = 10;// My campaign has a few NPCs with 10th-level magic
-    let debugLog = true;
+    let debugLog = false;
 
     // Debug Log
     const dlog = (str) => {
         if (debugLog) {
             log(str);
         }
-    }
+    };
 
     // Fatal Log
     const flog = (str, errorCode) => {
         log('SPELL MASTER FATAL ERROR CODE ' + errorCode + ' = ' + str);
         log('DUMPING STATE.SPELLMASTER');
         log(JSON.stringify(state.SpellMaster));
-    }
+    };
     
     // Alias state so we don't accidentally break it.
     let BookDict = state.SpellMaster;
@@ -405,7 +405,7 @@ on('ready', () => {
             c[i] = aVal + bVal;
         }
         return c;
-    }
+    };
 
     // Get the full max slot array for a list of leveled classes {Name, Level}.
     const GetCharSlots = (leveledClasses) => {
@@ -509,6 +509,9 @@ on('ready', () => {
     // Retrieves a list of leveled classes for a given spellbook {Name, Level}
     const GetLeveledClasses = (char, spellbook) => {
         let cachedBook = Cache.Books[spellbook.Name];
+        if (!cachedBook) {
+            cachedBook = RefreshCachedBook(spellbook);
+        }
         const classDisplay = GetCachedAttr(char, cachedBook, 'class_display');
         const leveledClassesString = classDisplay.split(',');
         let leveledClasses = [];
@@ -525,7 +528,7 @@ on('ready', () => {
             });
         }
         return leveledClasses;
-    }
+    };
 
     // Gets the stat mod for the given spellcasting class
     const GetStatModForClass = (char, spellbook, className) => {
@@ -575,12 +578,12 @@ on('ready', () => {
             } 
         }
         return prepString;
-    }
+    };
 
     // Returns true if the stat of this instance is a manual DC, false if it's anything else.
     const StatIsManualDC = (instance) => {
         return instance.Stat === 'Manual DC';
-    }
+    };
 
     // Returns a string that contains the details of a spell (used by expansion and casting)
     const GetSpellDetails = (book, instance, spell, createLinks) => {
@@ -710,6 +713,49 @@ on('ready', () => {
             sendChat(scname, spellContents);
         }
         return spellContents;
+    };
+
+    // Prints all knowable spells for a spellbook and given level
+    const PrintKnowables = (msg, book, level) => {
+        const char = GetCharByAny(book.Owner);
+        const leveledClasses = GetLeveledClasses(char, book);
+        let knowables = `/w "${msg.who.replace(' (GM)', '')}" &{template:desc} {{desc=<h3>${book.Owner} - ${level}</h3><hr>`;
+        knowables += `<div align="left" style="margin-left: 7px;margin-right: 7px">`;
+
+        // Iterate over all table spells
+        for(let i = 0; i < SpellList.length; i++) {
+            const spell = SpellList[i];
+            if (spell.Level === level) {
+                // Determine if the spell is knowable (on any of the book's classes' lists)
+                for (let j = 0; j < leveledClasses.length; j++) {
+                    const leveledClass = leveledClasses[j];
+                    if (spell.Classes.includes(leveledClass.Name)) {
+
+                        // Determine if spell is currently known or not
+                        let spellKnown = false;
+                        for (let j = 0; j < book.KnownSpells.length; j++) {
+                            const instance = book.KnownSpells[j];
+                            if (instance.Name === spell.Name) {
+                                spellKnown = true;
+                            }
+                        }
+
+                        // Build the entry for it
+                        const prepButton = spellKnown
+                            ? `[-](!SpellMaster --UpdateBook ^${book.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^Yes^ --RefreshKnowables ^Yes^)`
+                            : `[+](!SpellMaster --UpdateBook ^${book.Name}^ --ImportSpell ^${spell.Name}^ --RefreshKnowables ^Yes^)`
+                        const spellLine = `${prepButton} ${spell.Name}<br/>`;
+                        knowables += spellLine;
+                        break;
+                    }
+                }
+
+            }
+        }
+
+        knowables += `</div>}}`;
+        dlog(knowables);
+        sendChat(scname, knowables);
     };
 
     // The various subsections of a spellbook that can be cached
@@ -897,9 +943,10 @@ on('ready', () => {
 
                 const curSlotLink = CreateLink(`[${spellbook.CurSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Cur^ --ParamValue ^?{Please enter the new current value for Slot Level ${i}}^`);
                 const maxSlotLink = CreateLink(`[${spellbook.MaxSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Max^ --ParamValue ^?{Please enter the new maximum value for Slot Level ${i}}^`);
+                const fullListLink = CreateLink(`[...]`, `!SpellMaster --PrintKnowables ^${spellbook.Name}^ --Level ^${i}^`);
                 levelStr += i > 0
-                    ? `<h3>Level ${i} Spells - ${curSlotLink} / ${maxSlotLink} </h3>`
-                    : `<h3>Cantrips</h3>`;
+                    ? `<h3>Level ${i} Spells - ${curSlotLink} / ${maxSlotLink} - ${fullListLink}</h3>`
+                    : `<h3>Cantrips - ${fullListLink}</h3>`;
     
                 // Print all spells at current level
                 spellbook.KnownSpells.forEach((spellInstance) => {
@@ -1386,7 +1433,7 @@ on('ready', () => {
                 });
             });
         });
-    }
+    };
 
     // Asynchronously exports homebrew material
     const ExportHomebrew = (charName) => {
@@ -1417,7 +1464,7 @@ on('ready', () => {
         // Begin operation
         sendChat(scname, 'STARTING ASYNC EXPORT');
         _.defer(LoadHomebrewLevel, char, charName, 0);
-    }
+    };
 
     // Process chat messages
     on('chat:message', (msg) => {
@@ -1474,6 +1521,7 @@ on('ready', () => {
                 Name: bookName,
                 Handout: handout.id,
                 Owner: owner,
+                Stat: 'Wisdom',
                 PreparationLists: [// An array of arrays of spell names
                     {
                         Name: 'General',
@@ -1523,6 +1571,7 @@ on('ready', () => {
                     if (curSpell.Classes.includes(className) && statMod > bestMod) {
                         bestClass = className;
                         bestMod = statMod;
+                        spellbook.Stat = ClassToStatMap[className];
                     }
                 }
 
@@ -1589,6 +1638,7 @@ on('ready', () => {
             const paramName = GetParamValue(argParams, 'ParamName');
             const paramValue = GetParamValue(argParams, 'ParamValue');
             const confirm = GetParamValue(argParams, 'Confirm');
+            const refreshKnowables = GetParamValue(argParams, 'RefreshKnowables');
 
             // the list of caches that need to be updated.  Duplicates are fine.
             dirtyCaches = [];
@@ -1619,10 +1669,10 @@ on('ready', () => {
                         return;
                     }
                 }
-                BookDict[bookName].KnownSpells.push({
+                spellbook.KnownSpells.push({
                     Name: spell.Name,
                     IsExpanded: false,
-                    Stat: BookDict[bookName].Stat,
+                    Stat: spellbook.Stat,
                     Lock: false,
                     Notes: '',
                     CurSlots: 0,
@@ -1630,6 +1680,10 @@ on('ready', () => {
                 });
                 dirtyCaches.push(CacheOptions.Spells);
                 dirtyLevels = [spell.Level];
+
+                if (refreshKnowables === 'Yes') {
+                    PrintKnowables(msg, spellbook, spell.Level);
+                }
             } else if (removeSpell) {
                 if (confirm !== 'Yes') {
                     return;
@@ -1674,6 +1728,10 @@ on('ready', () => {
                 if (spellUnprepared) {
                     dirtyCaches.push(CacheOptions.Prepared);
                     dirtyCaches.push(CacheOptions.PrepLists);
+                }
+
+                if (refreshKnowables === 'Yes') {
+                    PrintKnowables(msg, spellbook, SpellDict[removeSpell].Level);
                 }
             } else if (updateSpell) {
                 dirtyCaches.push(CacheOptions.Spells);
@@ -2009,6 +2067,25 @@ on('ready', () => {
         if (argWords.includes(exportHomebrewTag)) {
             const charName = GetParamValue(argParams, 'ExportHomebrew');
             ExportHomebrew(charName);
+            return;
+        }
+
+        // Prints all potentially knowable spells given a creature's classes
+        const printKnowablesTag = '--PrintKnowables';
+        if (argWords.includes(printKnowablesTag)) {
+            const bookName = GetParamValue(argParams, 'PrintKnowables');
+            const spellbook = BookDict[bookName];
+            if (!spellbook) {
+                sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" No such book as ${bookName}`);
+                return;
+            }
+            const level = parseInt(GetParamValue(argParams, 'Level'));
+            if(isNaN(level)) {
+                sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Invalid level ${GetParamValue(argParams, 'Level')}`);
+                return;
+            }
+
+            PrintKnowables(msg, spellbook, level);
             return;
         }
 
