@@ -9,7 +9,7 @@ const SpellDict = {};
 const SpellMasterInstall = () => {
     const defaultSettings = {
         Sheet: 'OGL',
-        Version: 1.5
+        Version: 1.51
     };
     if(!state.SpellMaster) {
         state.SpellMaster = defaultSettings;
