@@ -846,8 +846,9 @@ on('ready', () => {
         if (dirtyCaches.includes(CacheOptions.All) || dirtyCaches.includes(CacheOptions.Tools)) {
             dlog('Rebuilding Tools');
             const fillSlotsLink = CreateLink(`[Long Rest]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --SetSlots ^Full^`);
+            const levelUpLink = CreateLink(`[Level Up]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --LevelUp ^?{Are you sure you want to resync the cache for Level Up?  This will reset any custom spell level slots.  (Slots reserved for individual spells are unaffected.)  Type 'Yes' to confirm}^`);
             const flushCacheLink = CreateLink(`[Refresh Cache]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --FlushCache ^Yes^`);
-        toolsStr += `<b>Tools:</b> ${fillSlotsLink} ${flushCacheLink}<br/>`;
+            toolsStr += `<b>Tools:</b> ${fillSlotsLink} - ${levelUpLink} - ${flushCacheLink}<br/>`;
             cachedBook.ToolsStr = toolsStr;
         } else {
             dlog('Using Cached Tools');
@@ -1582,6 +1583,7 @@ on('ready', () => {
             const castSpell = GetParamValue(argParams, 'CastSpell');
             const setSlots = GetParamValue(argParams, 'SetSlots');
             const flushCache = GetParamValue(argParams, 'FlushCache');
+            const levelUp = GetParamValue(argParams, 'LevelUp');
 
             // Parameters
             const paramName = GetParamValue(argParams, 'ParamName');
@@ -1910,6 +1912,17 @@ on('ready', () => {
                 }
                 dirtyCaches.push(CacheOptions.Spells);
                 dirtyLevels = CacheOptions.AllSpellLevels;
+            } else if (levelUp) {
+                if (levelUp !== 'Yes') {
+                    return;
+                }
+                RefreshCachedBook(spellbook);
+                const char = GetCharByAny(spellbook.Owner);
+                const leveledClasses = GetLeveledClasses(char, spellbook);
+                spellbook.MaxSlots = GetCharSlots(leveledClasses);
+                dirtyCaches.push(CacheOptions.All);
+                dirtyLevels = CacheOptions.AllSpellLevels;
+                sendChat(scname, `Leveled Up for ${spellbook.Name}.`);
             }
             
             // Filtration
