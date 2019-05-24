@@ -407,6 +407,15 @@ on('ready', () => {
         return c;
     };
 
+    // For those classes that don't have a dedicated spell list, get the class they rely on.
+    const GetSpellListClassFromClass = (leveledClass) => {
+        // EKs and ATs use the Wizard spell list
+        if ((leveledClass.Name === 'Fighter' && leveledClass.Subclass === 'Eldritch Knight') || (leveledClass.Name === 'Rogue' && leveledClass.Subclass === 'Arcane Trickster')) {
+            return 'Wizard';
+        }
+        return leveledClass.Name;
+    }
+
     // Get the full max slot array for a list of leveled classes {Name, Level}.
     const GetCharSlots = (leveledClasses) => {
         // Iterate through classes and get total levels per type
@@ -414,17 +423,32 @@ on('ready', () => {
         let halfLevel = 0;
         let thirdLevel = 0;
         let pactLevel = 0;
+        let casterClasses = 0;
         for (let i = 0; i < leveledClasses.length; i++) {
             const leveledClass = leveledClasses[i];
             const mode = GetCasterTypeFromClass(leveledClass.Name, leveledClass.Subclass);
+            
             dlog(`${leveledClass.Name}[${leveledClass.Level}]: ${GetBaseSpellSlots(mode, leveledClass.Level, leveledClass.Name, leveledClass.Subclass)}`);
             if (mode === CasterMode.Full) fullLevel += leveledClass.Level || 0;
             if (mode === CasterMode.Half) halfLevel += leveledClass.Level || 0;
             if (mode === CasterMode.Third) thirdLevel += leveledClass.Level || 0;
             if (mode === CasterMode.Pact) pactLevel += leveledClass.Level || 0;
+
+            // Track multiclassing
+            if (mode !== CasterMode.None && mode !== CasterMode.Invalid) casterClasses++;
         }
+
         // Add the fractional levels for non-pact magic
-        const normLevel = Math.floor(fullLevel*CasterModeMultiplier[CasterMode.Full] + halfLevel*CasterModeMultiplier[CasterMode.Half] + thirdLevel*CasterModeMultiplier[CasterMode.Third]);
+        const fullFraction = fullLevel*CasterModeMultiplier[CasterMode.Full];
+        const halfFraction = halfLevel >= 2
+            ? halfLevel*CasterModeMultiplier[CasterMode.Half]
+            : 0;
+        const thirdFraction = thirdLevel >= 3
+            ? thirdLevel*CasterModeMultiplier[CasterMode.Third]
+            : 0;
+        const normLevel = casterClasses > 1
+            ? fullFraction + Math.floor(halfFraction) + Math.floor(thirdFraction)
+            : Math.ceil(fullFraction + halfFraction + thirdFraction);
         
         // Add the slots of all the types together
         const normSlots = GetBaseSpellSlots(CasterMode.Full, normLevel, 'NORMAL');
@@ -729,8 +753,9 @@ on('ready', () => {
                 // Determine if the spell is knowable (on any of the book's classes' lists)
                 for (let j = 0; j < leveledClasses.length; j++) {
                     const leveledClass = leveledClasses[j];
-                    if (spell.Classes.includes(leveledClass.Name)) {
+                    let className = GetSpellListClassFromClass(leveledClass);
 
+                    if (spell.Classes.includes(className)) {
                         // Determine if spell is currently known or not
                         let spellKnown = false;
                         for (let j = 0; j < book.KnownSpells.length; j++) {
@@ -749,7 +774,6 @@ on('ready', () => {
                         break;
                     }
                 }
-
             }
         }
 
@@ -1566,7 +1590,8 @@ on('ready', () => {
 
                 // Iterate over the classes for this character, looking for any with this spell
                 for (let i = 0; i < leveledClasses.length; i++) {
-                    const className = leveledClasses[i].Name;
+                    const leveledClass = leveledClasses[i];
+                    let className = leveledClass.Name;
                     const statMod = GetStatModForClass(char, spellbook, className);
                     if (curSpell.Classes.includes(className) && statMod > bestMod) {
                         bestClass = className;
@@ -1669,12 +1694,35 @@ on('ready', () => {
                         return;
                     }
                 }
+                
+                // Determine which stat this should go under
+                let spellStat = 'Wisdom';
+                let bestClass = 'From X';
+                let bestMod = -6;
+                const char = GetCharByAny(spellbook.Owner);
+                const leveledClasses = GetLeveledClasses(char, spellbook);
+                for (let i = 0; i < leveledClasses.length; i++) {
+                    const leveledClass = leveledClasses[i];
+                    let className = GetSpellListClassFromClass(leveledClass);
+
+                    // Get the modifier for comparison
+                    const statMod = GetStatModForClass(char, spellbook, className);
+
+                    // If it's in the list and the best so far, record that.
+                    if (spell.Classes.includes(className) && statMod > bestMod) {
+                        spellStat = ClassToStatMap[className];
+                        bestClass = leveledClass.Name;
+                        bestMod = statMod;
+                    }
+                }
+
+                // Add the known spell instance
                 spellbook.KnownSpells.push({
                     Name: spell.Name,
                     IsExpanded: false,
-                    Stat: spellbook.Stat,
+                    Stat: spellStat,
                     Lock: false,
-                    Notes: '',
+                    Notes: 'From ' + bestClass,
                     CurSlots: 0,
                     MaxSlots: 0
                 });
