@@ -9,7 +9,7 @@ const SpellDict = {};
 const SpellMasterInstall = () => {
     const defaultSettings = {
         Sheet: 'OGL',
-        Version: 1.5
+        Version: 1.41
     };
     if(!state.SpellMaster) {
         state.SpellMaster = defaultSettings;
@@ -52,14 +52,14 @@ on('ready', () => {
         if (debugLog) {
             log(str);
         }
-    };
+    }
 
     // Fatal Log
     const flog = (str, errorCode) => {
         log('SPELL MASTER FATAL ERROR CODE ' + errorCode + ' = ' + str);
         log('DUMPING STATE.SPELLMASTER');
         log(JSON.stringify(state.SpellMaster));
-    };
+    }
     
     // Alias state so we don't accidentally break it.
     let BookDict = state.SpellMaster;
@@ -149,6 +149,22 @@ on('ready', () => {
         return '';
     };
 
+    // Set attribute on char sheet
+    const setattr = (charId, attrName, val) => {
+        const attr = findObjs({
+            type: 'attribute',
+            characterid: charId,
+            name: attrName,
+        })[0];
+        if (typeof attr === 'undefined' || attr == null) {
+            const attr = createObj('attribute', { name: attrName, characterid: charId, current: parseFloat(val) });
+        } else {
+            attr.setWithWorker({
+            current: parseFloat(val),
+        });
+        }
+    };
+
     // Retrieves the value stored in the parameter with the provided name
     const GetParamValue = (argParams, paramName) => {
         const id = GetParamId(argParams, paramName);
@@ -185,45 +201,29 @@ on('ready', () => {
     
     // Enum of caster types
     const CasterMode = {
-        Invalid: 0,
-        Full: 1,
-        Half: 2,
-        Third: 3,
-        Pact: 4,
-        None: 5
+        Invalid: -1,
+        Full: 0,
+        Half: 1,
+        Third: 2,
+        Pact: 3,
+        None: 4
     };
-
-    // The multipliers for caster modes
-    const CasterModeMultiplier = {};
 
     // A dictionary of caster types
     const CasterTypeMap = {};
 
-    // Map full text names to abbreviations, so Intelligence => INT.
-    const StatMap = {};
-
-    // Map class name to stat ie Druid => WIS
-    const ClassToStatMap = {};
-
     // Perform initial configuration for caster type mappings
-    const BuildMaps = () => {
-        CasterModeMultiplier[CasterMode.Full] = 1;
-        CasterModeMultiplier[CasterMode.Half] = 1/2;
-        CasterModeMultiplier[CasterMode.Third] = 1/3;
-        CasterModeMultiplier[CasterMode.None] = 0;
-        CasterModeMultiplier[CasterMode.Invalid] = 0;
-        CasterModeMultiplier[CasterMode.Pact] = 1;
-
+    const MapCasterTypes = () => {
         CasterTypeMap['Artificer'] = CasterMode.Full;
         CasterTypeMap['Barbarian'] = CasterMode.None;
         CasterTypeMap['Bard'] = CasterMode.Full;
         CasterTypeMap['Cleric'] = CasterMode.Full;
         CasterTypeMap['Druid'] = CasterMode.Full;
-        CasterTypeMap['Fighter:Eldritch Knight'] = CasterMode.Third;
-        CasterTypeMap['Monk'] = CasterMode.None;
+        CasterTypeMap['Fighter'] = CasterMode.Third;
+        CasterTypeMap['Monk'] = CasterMode.Full;
         CasterTypeMap['Paladin'] = CasterMode.Half;
         CasterTypeMap['Ranger'] = CasterMode.Half;
-        CasterTypeMap['Rogue:Arcane Trickster'] = CasterMode.Third;
+        CasterTypeMap['Rogue'] = CasterMode.Third;
         CasterTypeMap['Shaman'] = CasterMode.Full;
         CasterTypeMap['Sorcerer'] = CasterMode.Full;
         CasterTypeMap['Warlock'] = CasterMode.Pact;
@@ -231,47 +231,23 @@ on('ready', () => {
         CasterTypeMap[null] = CasterMode.None;
         CasterTypeMap['undefined'] = CasterMode.None;
         CasterTypeMap['SRD'] = CasterMode.Full;
-
-        StatMap['Strength'] = 'STR';
-        StatMap['Dexterity'] = 'DEX';
-        StatMap['Constitution'] = 'CON';
-        StatMap['Intelligence'] = 'INT';
-        StatMap['Wisdom'] = 'WIS';
-        StatMap['Charisma'] = 'CHA';
-
-        ClassToStatMap['Artificer'] = 'Intelligence';
-        ClassToStatMap['Bard'] = 'Charisma';
-        ClassToStatMap['Cleric'] = 'Wisdom';
-        ClassToStatMap['Druid'] = 'Wisdom';
-        ClassToStatMap['Fighter'] = 'Intelligence';
-        ClassToStatMap['Paladin'] = 'Charisma';
-        ClassToStatMap['Ranger'] = 'Wisdom';
-        ClassToStatMap['Rogue'] = 'Intelligence';
-        ClassToStatMap['Shaman'] = 'Wisdom';
-        ClassToStatMap['Sorcerer'] = 'Charisma';
-        ClassToStatMap['Warlock'] = 'Charisma';
-        ClassToStatMap['Wizard'] = 'Intelligence';
     };
-    BuildMaps();
+    MapCasterTypes();
 
-    // Get a caster type from the map (CasterMode).
-    const GetCasterTypeFromClass = (className, subName) => {
-        const baseVal = CasterTypeMap[className];
-        if (baseVal) {
-            return baseVal;
+    // Get a caster type from the map
+    const GetCasterTypeFromClass = (className) => {
+        try {
+            return CasterTypeMap[className];
+        } catch (e) {
+            log('Invalid class: ' + className);
+            return CasterMode.Invalid;
         }
-        const auxVal = CasterTypeMap[className + ':' + subName];
-        return auxVal;
     };
 
     // Get default spell slot array for a caster type and level
-    const GetBaseSpellSlots = (casterMode, level, className = '', subclassName = '') => {
-        const empty = [0,0,0,0,0,0,0,0,0];
-        dlog(`Getting Slots for mode=${casterMode} lvl=${level}, class=${className}, sub=${subclassName}`);
-
+    const GetBaseSpellSlots = (casterMode, level) => {
         if (casterMode === CasterMode.Full){
             const fullCasterSlots = [
-                [0,0,0,0,0,0,0,0,0],// 0
                 [2,0,0,0,0,0,0,0,0],// 1
                 [3,0,0,0,0,0,0,0,0],// 2
                 [4,2,0,0,0,0,0,0,0],// 3
@@ -293,17 +269,9 @@ on('ready', () => {
                 [4,3,3,3,3,2,1,1,1],// 19
                 [4,3,3,3,3,2,2,1,1],// 20
             ];
-            return fullCasterSlots[level];
+            return fullCasterSlots[level-1];
         } else if(casterMode === CasterMode.Half) {
-            const validClasses = [
-                'Paladin',
-                'Ranger',
-            ];
-            if (!validClasses.includes(className)) {
-                return empty;
-            }
             const halfCasterSlots = [
-                [0,0,0,0,0,0,0,0,0],// 0
                 [0,0,0,0,0,0,0,0,0],// 1
                 [2,0,0,0,0,0,0,0,0],// 2
                 [3,0,0,0,0,0,0,0,0],// 3
@@ -325,17 +293,9 @@ on('ready', () => {
                 [4,3,3,2,2,0,0,0,0],// 19
                 [4,3,3,2,2,0,0,0,0],// 20
             ];
-            return halfCasterSlots[level];
+            return halfCasterSlots[level-1];
         } else if (casterMode === CasterMode.Third) {
-            const validSubs = [
-                'Arcane Trickster',
-                'Eldritch Knight'
-            ];
-            if (!validSubs.includes(subclassName)) {
-                return empty;
-            }
             const thirdCasterSlots = [
-                [0,0,0,0,0,0,0,0,0],// 0
                 [0,0,0,0,0,0,0,0,0],// 1
                 [0,0,0,0,0,0,0,0,0],// 2
                 [2,0,0,0,0,0,0,0,0],// 3
@@ -357,10 +317,9 @@ on('ready', () => {
                 [4,3,3,1,0,0,0,0,0],// 19
                 [4,3,3,1,0,0,0,0,0],// 20
             ];
-            return thirdCasterSlots[level];
+            return thirdCasterSlots[level-1];
         } else if (casterMode === CasterMode.Pact) {
             const pactCasterSlots = [
-                [0,0,0,0,0,0,0,0,0],// 0
                 [1,0,0,0,0,0,0,0,0],// 1
                 [2,0,0,0,0,0,0,0,0],// 2
                 [0,2,0,0,0,0,0,0,0],// 3
@@ -382,59 +341,23 @@ on('ready', () => {
                 [0,0,0,0,3,1,1,1,1],// 19
                 [0,0,0,0,3,1,1,1,1],// 20
             ];
-            return pactCasterSlots[level];
+            return pactCasterSlots[level-1];
+        } else {
+            return [0,0,0,0,0,0,0,0,0];
         }
-        
-        // Default to empty
-        return empty;
     };
 
-    // A and B are arrays of slots
-    const AddSlots = (a, b) => {
-        let c = [0,0,0,0,0,0,0,0,0];
-        if (a && !b) {
-            return a;
-        } else if (!a && b) {
-            return b;
-        } else if (!a && !b) {
-            return c;
-        }
-        for (let i = 0; i < 10; i++) {
-            const aVal = a[i] || 0
-            const bVal = b[i] || 0
-            c[i] = aVal + bVal;
-        }
-        return c;
-    };
-
-    // Get the full max slot array for a list of leveled classes {Name, Level}.
-    const GetCharSlots = (leveledClasses) => {
-        // Iterate through classes and get total levels per type
-        let fullLevel = 0;
-        let halfLevel = 0;
-        let thirdLevel = 0;
-        let pactLevel = 0;
-        for (let i = 0; i < leveledClasses.length; i++) {
-            const leveledClass = leveledClasses[i];
-            const mode = GetCasterTypeFromClass(leveledClass.Name, leveledClass.Subclass);
-            dlog(`${leveledClass.Name}[${leveledClass.Level}]: ${GetBaseSpellSlots(mode, leveledClass.Level, leveledClass.Name, leveledClass.Subclass)}`);
-            if (mode === CasterMode.Full) fullLevel += leveledClass.Level || 0;
-            if (mode === CasterMode.Half) halfLevel += leveledClass.Level || 0;
-            if (mode === CasterMode.Third) thirdLevel += leveledClass.Level || 0;
-            if (mode === CasterMode.Pact) pactLevel += leveledClass.Level || 0;
-        }
-        // Add the fractional levels for non-pact magic
-        const normLevel = Math.floor(fullLevel*CasterModeMultiplier[CasterMode.Full] + halfLevel*CasterModeMultiplier[CasterMode.Half] + thirdLevel*CasterModeMultiplier[CasterMode.Third]);
-        
-        // Add the slots of all the types together
-        const normSlots = GetBaseSpellSlots(CasterMode.Full, normLevel, 'NORMAL');
-        dlog('Normal Slots[' + normLevel + ']: ' + normSlots);
-        const pactSlots = GetBaseSpellSlots(CasterMode.Pact, pactLevel, 'PACT');
-        dlog('Pact Slots[' + pactLevel + ']: ' + pactSlots);
-
-        // Add the normal and pact slots together
-        return AddSlots(normSlots, pactSlots);
-    };
+    // Map full text names to abbreviations, so Intelligence => INT.
+    const StatMap = {};
+    const MapAbilities = () => {
+        StatMap['Strength'] = 'STR';
+        StatMap['Dexterity'] = 'DEX';
+        StatMap['Constitution'] = 'CON';
+        StatMap['Intelligence'] = 'INT';
+        StatMap['Wisdom'] = 'WIS';
+        StatMap['Charisma'] = 'CHA';
+    }
+    MapAbilities();
 
     // Creates a link 
     const CreateLink = (text, linkTo) => {
@@ -506,47 +429,15 @@ on('ready', () => {
         }
     };
 
-    // Retrieves a list of leveled classes for a given spellbook {Name, Level}
-    const GetLeveledClasses = (char, spellbook) => {
-        let cachedBook = Cache.Books[spellbook.Name];
-        if (!cachedBook) {
-            cachedBook = RefreshCachedBook(spellbook);
-        }
-        const classDisplay = GetCachedAttr(char, cachedBook, 'class_display');
-        const leveledClassesString = classDisplay.split(',');
-        let leveledClasses = [];
-        for (let i = 0; i < leveledClassesString.length; i++) {
-            const trimmedClass = leveledClassesString[i].trim();
-            const classDetails = trimmedClass.split(' ');
-            const className = classDetails[classDetails.length-2];
-            const classLevel = parseInt(classDetails[classDetails.length-1]);
-            const subclassName = trimmedClass.substr(0, trimmedClass.indexOf(className)).trim();
-            leveledClasses.push({
-                Name: className,
-                Subclass: subclassName,
-                Level: classLevel
-            });
-        }
-        return leveledClasses;
-    };
-
-    // Gets the stat mod for the given spellcasting class
-    const GetStatModForClass = (char, spellbook, className) => {
-        let cachedBook = Cache.Books[spellbook.Name];
-        const stat = ClassToStatMap[className];
-        if (!stat) {
-            return -5;
-        }
-        return GetCachedAttr(char, cachedBook, stat.toLowerCase() + '_mod') || 0;
-    };
-
     const GetMaxPreparationString = (char, spellbook) => {
         let cachedBook = Cache.Books[spellbook.Name];
-        const leveledClasses = GetLeveledClasses(char, spellbook);
+        const classDisplay = GetCachedAttr(char, cachedBook, 'class_display');
+        const leveledClasses = classDisplay.split(',');
         let prepString = '';
         for(let i = 0; i < leveledClasses.length; i++) {
-            const className = leveledClasses[i].Name;
-            const classLevel = leveledClasses[i].Level;
+            const classDetails = leveledClasses[i].trim().split(' ');
+            const className = classDetails[classDetails.length-2];
+            const classLevel = parseInt(classDetails[classDetails.length-1]);
             if (className === 'Cleric' || className === 'Druid' || className === 'Shaman') {
                 const statMod = GetCachedAttr(char, cachedBook, 'wisdom_mod') || 0;
                 prepString += `/ ${classLevel + statMod} (${className}) `;
@@ -578,12 +469,12 @@ on('ready', () => {
             } 
         }
         return prepString;
-    };
+    }
 
     // Returns true if the stat of this instance is a manual DC, false if it's anything else.
     const StatIsManualDC = (instance) => {
         return instance.Stat === 'Manual DC';
-    };
+    }
 
     // Returns a string that contains the details of a spell (used by expansion and casting)
     const GetSpellDetails = (book, instance, spell, createLinks) => {
@@ -713,49 +604,6 @@ on('ready', () => {
             sendChat(scname, spellContents);
         }
         return spellContents;
-    };
-
-    // Prints all knowable spells for a spellbook and given level
-    const PrintKnowables = (msg, book, level) => {
-        const char = GetCharByAny(book.Owner);
-        const leveledClasses = GetLeveledClasses(char, book);
-        let knowables = `/w "${msg.who.replace(' (GM)', '')}" &{template:desc} {{desc=<h3>${book.Owner} - ${level}</h3><hr>`;
-        knowables += `<div align="left" style="margin-left: 7px;margin-right: 7px">`;
-
-        // Iterate over all table spells
-        for(let i = 0; i < SpellList.length; i++) {
-            const spell = SpellList[i];
-            if (spell.Level === level) {
-                // Determine if the spell is knowable (on any of the book's classes' lists)
-                for (let j = 0; j < leveledClasses.length; j++) {
-                    const leveledClass = leveledClasses[j];
-                    if (spell.Classes.includes(leveledClass.Name)) {
-
-                        // Determine if spell is currently known or not
-                        let spellKnown = false;
-                        for (let j = 0; j < book.KnownSpells.length; j++) {
-                            const instance = book.KnownSpells[j];
-                            if (instance.Name === spell.Name) {
-                                spellKnown = true;
-                            }
-                        }
-
-                        // Build the entry for it
-                        const prepButton = spellKnown
-                            ? `[-](!SpellMaster --UpdateBook ^${book.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^Yes^ --RefreshKnowables ^Yes^)`
-                            : `[+](!SpellMaster --UpdateBook ^${book.Name}^ --ImportSpell ^${spell.Name}^ --RefreshKnowables ^Yes^)`
-                        const spellLine = `${prepButton} ${spell.Name}<br/>`;
-                        knowables += spellLine;
-                        break;
-                    }
-                }
-
-            }
-        }
-
-        knowables += `</div>}}`;
-        dlog(knowables);
-        sendChat(scname, knowables);
     };
 
     // The various subsections of a spellbook that can be cached
@@ -892,9 +740,8 @@ on('ready', () => {
         if (dirtyCaches.includes(CacheOptions.All) || dirtyCaches.includes(CacheOptions.Tools)) {
             dlog('Rebuilding Tools');
             const fillSlotsLink = CreateLink(`[Long Rest]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --SetSlots ^Full^`);
-            const levelUpLink = CreateLink(`[Level Up]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --LevelUp ^?{Are you sure you want to resync the cache for Level Up?  This will reset any custom spell level slots.  (Slots reserved for individual spells are unaffected.)  Type 'Yes' to confirm}^`);
             const flushCacheLink = CreateLink(`[Refresh Cache]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --FlushCache ^Yes^`);
-            toolsStr += `<b>Tools:</b> ${fillSlotsLink} - ${levelUpLink} - ${flushCacheLink}<br/>`;
+        toolsStr += `<b>Tools:</b> ${fillSlotsLink} ${flushCacheLink}<br/>`;
             cachedBook.ToolsStr = toolsStr;
         } else {
             dlog('Using Cached Tools');
@@ -943,10 +790,9 @@ on('ready', () => {
 
                 const curSlotLink = CreateLink(`[${spellbook.CurSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Cur^ --ParamValue ^?{Please enter the new current value for Slot Level ${i}}^`);
                 const maxSlotLink = CreateLink(`[${spellbook.MaxSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Max^ --ParamValue ^?{Please enter the new maximum value for Slot Level ${i}}^`);
-                const fullListLink = CreateLink(`[...]`, `!SpellMaster --PrintKnowables ^${spellbook.Name}^ --Level ^${i}^`);
                 levelStr += i > 0
-                    ? `<h3>Level ${i} Spells - ${curSlotLink} / ${maxSlotLink} - ${fullListLink}</h3>`
-                    : `<h3>Cantrips - ${fullListLink}</h3>`;
+                    ? `<h3>Level ${i} Spells - ${curSlotLink} / ${maxSlotLink} </h3>`
+                    : `<h3>Cantrips</h3>`;
     
                 // Print all spells at current level
                 spellbook.KnownSpells.forEach((spellInstance) => {
@@ -963,12 +809,12 @@ on('ready', () => {
                     const spellIsPrepared = activePrepList.PreparedSpells.map((item) => {return item.Name;}).indexOf(spellInstance.Name) > -1
                         || spell.Level === 0
                         || spellInstance.Lock;
+                    if (spell.Level !== 0 && ((spellbook.Filter.Prepared === Filters.WithFlag && !spellIsPrepared) || (spellbook.Filter.Prepared === Filters.WithoutFlag && spellIsPrepared))) {
+                        return;
+                    }
 
                     // Check filtering
                     if (spellbook.Filter) {
-                        if (spell.Level !== 0 && ((spellbook.Filter.Prepared === Filters.WithFlag && !spellIsPrepared) || (spellbook.Filter.Prepared === Filters.WithoutFlag && spellIsPrepared))) {
-                            return;
-                        }
                         if ((spellbook.Filter.V === Filters.WithFlag && !spell.Components.V) 
                             || (spellbook.Filter.V === Filters.WithoutFlag && spell.Components.V)) {
                             return;
@@ -1037,7 +883,6 @@ on('ready', () => {
                     tagStr += spell.IsRitual ? " (R)" : "";
                     tagStr += spell.Duration.toLowerCase().includes('concentration') ? " (C)" : "";
 
-                    // Expansion button
                     const expandedText = spellInstance.IsExpanded 
                         ? CreateLink('[-]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Expanded^ --ParamValue ^False^`)
                         : CreateLink('[+]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Expanded^ --ParamValue ^True^`);
@@ -1433,7 +1278,7 @@ on('ready', () => {
                 });
             });
         });
-    };
+    }
 
     // Asynchronously exports homebrew material
     const ExportHomebrew = (charName) => {
@@ -1464,7 +1309,7 @@ on('ready', () => {
         // Begin operation
         sendChat(scname, 'STARTING ASYNC EXPORT');
         _.defer(LoadHomebrewLevel, char, charName, 0);
-    };
+    }
 
     // Process chat messages
     on('chat:message', (msg) => {
@@ -1486,7 +1331,10 @@ on('ready', () => {
             let menu = `/w gm &{template:desc} {{desc=<h3>Spell Master</h3><hr>`
                 + `[Create Spellbook](!SpellMaster `
                     + `--CreateBook ^?{Please type the name of your previously-created handout to be used for this spellbook.}^ `
-                    + `--Owner ^?{Please enter the name of the character that will use this.}^)<br/>`
+                    + `--Owner ^?{Please enter the name of the character that will use this.}^ `
+                    + `--Stat ^?{Please list their primary spellcasting ability.|Intelligence|Wisdom|Charisma}^ `
+                    + `--ImportClass ^?{Please select a spell list to import in its entirety.  Only recommended for Cleric and Druid.|Artificer|Bard|Cleric|Druid|Paladin|Ranger|Shaman|Warlock|Wizard|None}^ `
+                    + `--Level ^?{Please input their total spell-caster level.  Do not count pact magic levels.}^)<br/>`
                 + `[Delete Spellbook](!SpellMaster --DeleteBook ^?{Please type the name of the spellbook to delete.}^ --Confirm ^?{Please type Yes to confirm}^)<br/>`
                 + `[Delete Spell](!SpellMaster --UpdateBook ^?{Spellbook Name}^ --RemoveSpell ^?{Spell Name}^ --Confirm ^?{Type Yes to confirm deletion of this spell from this spell list.}^)<br/>`
                 + `[Flush Cache](!SpellMaster --UpdateBook ^?{Spellbook Name}^ --FlushCache ^Yes^)<br/>`
@@ -1503,10 +1351,13 @@ on('ready', () => {
         if(argWords.includes(createBookTag)) {
             const bookName = GetParamValue(argParams, 'CreateBook');
             const owner = GetParamValue(argParams, 'Owner');
+            const stat = GetParamValue(argParams, 'Stat');
+            const casterClass = GetParamValue(argParams, 'ImportClass');
+            const level = parseInt(GetParamValue(argParams, 'Level')) || 1;
 
             log("To Configure Handout \"" + bookName + "\" as a spellbook");
             const handout = GetHandout(bookName);
-            if (!handout) {
+            if(!handout){
                 sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No such handout as ${bookName} exists!`);
                 return;
             }
@@ -1516,12 +1367,44 @@ on('ready', () => {
                 return;
             }
 
-            const spellbook = {
+            // Get spells for class
+            let knownSpells = [];
+            if (casterClass !== null && casterClass.length > 0 && casterClass !== 'None') {
+                for (let i = 0; i < SpellList.length; i++) {
+                    const curSpell = SpellList[i];
+
+                    // Do not autopopulate cantrips
+                    if (curSpell.Level === 0) {
+                        continue;
+                    }
+
+                    // Import the spells
+                    if (curSpell.Classes.includes(casterClass)) {
+                        knownSpells.push({
+                            Name: curSpell.Name,
+                            IsExpanded: false,
+                            Stat: stat,
+                            DC: 8,
+                            Lock: false,
+                            Notes: '',
+                            CurSlots: 0,
+                            MaxSlots: 0
+                        });
+                    }
+                }
+            }
+
+            // Get caster type
+            const type = GetCasterTypeFromClass(casterClass);
+
+            // Create state entry
+            BookDict[bookName] = {
                 IsSpellbook: true,
                 Name: bookName,
                 Handout: handout.id,
+                Stat: stat,
                 Owner: owner,
-                Stat: 'Wisdom',
+                CasterClass: casterClass,
                 PreparationLists: [// An array of arrays of spell names
                     {
                         Name: 'General',
@@ -1540,66 +1423,12 @@ on('ready', () => {
                     Search: "",
                 },
                 ActivePrepList: 0,
-                // The below fields are set to default values and will be populated later
-                KnownSpells: [],
-                CurSlots: [-1,-1,-1,-1,-1,-1,-1,-1,-1],
-                MaxSlots: [-1,-1,-1,-1,-1,-1,-1,-1,-1]
+                KnownSpells: knownSpells,
+                CurSlots: GetBaseSpellSlots(type, level),
+                MaxSlots: GetBaseSpellSlots(type, level)
             };
-
-            RefreshCachedBook(spellbook);
-
-            const leveledClasses = GetLeveledClasses(char, spellbook);
-
-            // Import known spells
-            let knownSpells = [];
-            for (let i = 0; i < SpellList.length; i++) {
-                const curSpell = SpellList[i];
-
-                // Do not autopopulate cantrips
-                if (curSpell.Level === 0) {
-                    continue;
-                }
-
-                // Keep only the best
-                let bestClass = false;
-                let bestMod = -5;
-
-                // Iterate over the classes for this character, looking for any with this spell
-                for (let i = 0; i < leveledClasses.length; i++) {
-                    const className = leveledClasses[i].Name;
-                    const statMod = GetStatModForClass(char, spellbook, className);
-                    if (curSpell.Classes.includes(className) && statMod > bestMod) {
-                        bestClass = className;
-                        bestMod = statMod;
-                        spellbook.Stat = ClassToStatMap[className];
-                    }
-                }
-
-                // Add it to the list under the best option
-                if (bestClass === 'Cleric' || bestClass === 'Druid' || bestClass === 'Shaman') {
-                    knownSpells.push({
-                        Name: curSpell.Name,
-                        IsExpanded: false,
-                        Stat: ClassToStatMap[bestClass],
-                        DC: 8,
-                        Lock: false,
-                        Notes: 'From ' + bestClass,
-                        CurSlots: 0,
-                        MaxSlots: 0
-                    });
-                }
-            }
-            spellbook.KnownSpells = knownSpells;
-
-            // Get slots for classes.  Do it twice for unique array objects
-            spellbook.CurSlots = GetCharSlots(leveledClasses);
-            for (let i = 0; i < spellbook.CurSlots.length; i++) {
-                spellbook.MaxSlots[i] = spellbook.CurSlots[i];
-            }
-
-            // Create state entry
-            BookDict[bookName] = spellbook;
             log("Successfully created a new spell list!");
+            RefreshCachedBook(BookDict[bookName]);
             PrintSpellbook(BookDict[bookName], [CacheOptions.All], CacheOptions.AllSpellLevels);
             sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Spellbook created.`);
 
@@ -1632,13 +1461,11 @@ on('ready', () => {
             const castSpell = GetParamValue(argParams, 'CastSpell');
             const setSlots = GetParamValue(argParams, 'SetSlots');
             const flushCache = GetParamValue(argParams, 'FlushCache');
-            const levelUp = GetParamValue(argParams, 'LevelUp');
 
             // Parameters
             const paramName = GetParamValue(argParams, 'ParamName');
             const paramValue = GetParamValue(argParams, 'ParamValue');
             const confirm = GetParamValue(argParams, 'Confirm');
-            const refreshKnowables = GetParamValue(argParams, 'RefreshKnowables');
 
             // the list of caches that need to be updated.  Duplicates are fine.
             dirtyCaches = [];
@@ -1669,10 +1496,10 @@ on('ready', () => {
                         return;
                     }
                 }
-                spellbook.KnownSpells.push({
+                BookDict[bookName].KnownSpells.push({
                     Name: spell.Name,
                     IsExpanded: false,
-                    Stat: spellbook.Stat,
+                    Stat: BookDict[bookName].Stat,
                     Lock: false,
                     Notes: '',
                     CurSlots: 0,
@@ -1680,10 +1507,6 @@ on('ready', () => {
                 });
                 dirtyCaches.push(CacheOptions.Spells);
                 dirtyLevels = [spell.Level];
-
-                if (refreshKnowables === 'Yes') {
-                    PrintKnowables(msg, spellbook, spell.Level);
-                }
             } else if (removeSpell) {
                 if (confirm !== 'Yes') {
                     return;
@@ -1728,10 +1551,6 @@ on('ready', () => {
                 if (spellUnprepared) {
                     dirtyCaches.push(CacheOptions.Prepared);
                     dirtyCaches.push(CacheOptions.PrepLists);
-                }
-
-                if (refreshKnowables === 'Yes') {
-                    PrintKnowables(msg, spellbook, SpellDict[removeSpell].Level);
                 }
             } else if (updateSpell) {
                 dirtyCaches.push(CacheOptions.Spells);
@@ -1970,17 +1789,6 @@ on('ready', () => {
                 }
                 dirtyCaches.push(CacheOptions.Spells);
                 dirtyLevels = CacheOptions.AllSpellLevels;
-            } else if (levelUp) {
-                if (levelUp !== 'Yes') {
-                    return;
-                }
-                RefreshCachedBook(spellbook);
-                const char = GetCharByAny(spellbook.Owner);
-                const leveledClasses = GetLeveledClasses(char, spellbook);
-                spellbook.MaxSlots = GetCharSlots(leveledClasses);
-                dirtyCaches.push(CacheOptions.All);
-                dirtyLevels = CacheOptions.AllSpellLevels;
-                sendChat(scname, `Leveled Up for ${spellbook.Name}.`);
             }
             
             // Filtration
@@ -2067,25 +1875,6 @@ on('ready', () => {
         if (argWords.includes(exportHomebrewTag)) {
             const charName = GetParamValue(argParams, 'ExportHomebrew');
             ExportHomebrew(charName);
-            return;
-        }
-
-        // Prints all potentially knowable spells given a creature's classes
-        const printKnowablesTag = '--PrintKnowables';
-        if (argWords.includes(printKnowablesTag)) {
-            const bookName = GetParamValue(argParams, 'PrintKnowables');
-            const spellbook = BookDict[bookName];
-            if (!spellbook) {
-                sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" No such book as ${bookName}`);
-                return;
-            }
-            const level = parseInt(GetParamValue(argParams, 'Level'));
-            if(isNaN(level)) {
-                sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Invalid level ${GetParamValue(argParams, 'Level')}`);
-                return;
-            }
-
-            PrintKnowables(msg, spellbook, level);
             return;
         }
 
