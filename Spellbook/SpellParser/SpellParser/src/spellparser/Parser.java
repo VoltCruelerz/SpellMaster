@@ -40,6 +40,34 @@ public class Parser {
         }
     }
     
+    public String GetOldName(String src){
+        String leftTag = "[";
+        String rightTag = "]";
+        String fromTag = " from ";
+        try{
+            // System.out.println("Get Old Name - Start: " + src);
+            String trimmedSrc = src.trim();
+            int leftIndex = trimmedSrc.lastIndexOf(leftTag);
+            int rightIndex = trimmedSrc.lastIndexOf(rightTag);
+            String changeString = trimmedSrc.substring(leftIndex + 1, rightIndex).trim();
+            
+            int fromIndex = changeString.indexOf(fromTag);
+            boolean isNew = changeString.startsWith("New");
+            boolean isUpdate = changeString.startsWith("Update");
+            boolean isRename = changeString.startsWith("Rename");
+            String output = "";
+            if (fromIndex > -1 && (isNew || isUpdate || isRename)) {
+                output = changeString.substring(fromIndex + fromTag.length());
+            }
+            // System.out.println("Get Old Name - End: " + output);
+            return output;
+        }
+        catch(Exception e){
+            System.out.println("SRC: " + src);
+            throw e;
+        }
+    }
+    
     public Spell ParseRawSpellFile(Object[] lines){
         // Tags for catching fields
         String titleStartTag = "<h1 class=\"classic-title\"><span>";
@@ -146,6 +174,7 @@ public class Parser {
         
         int level = -1;
         String name = "";
+        String oldName = "";
         String school = "";
         boolean isRitual = false;
         String castTime = "";
@@ -166,6 +195,7 @@ public class Parser {
                     continue;
                 }
                 name = ExciseString(line, "] ", " [");
+                oldName = GetOldName(line);
                 //System.out.println("Name: " + name);
                 String excisedLevelString = ExciseString(line, "[", "]");
                 level = Integer.parseInt(excisedLevelString);
@@ -199,7 +229,7 @@ public class Parser {
                     desc = desc + "\n" + descLine;
                 }
                 
-                Spell spell = new Spell(name, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
+                Spell spell = new Spell(name, oldName, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
                 isRitual = false;
                 retVal.add(spell);
             } catch (Exception e){
@@ -215,24 +245,27 @@ public class Parser {
     public Parser(boolean srdOnly) {
         Gson gson = new Gson();
         String[] srdSpellNames = new String[0];
+        System.out.println("Reading SRD list");
         Charset charset = Charset.forName("UTF-8");
         try {
-            Path path = new File("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\SRD\\SRD.txt").toPath();
+            Path path = new File("D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\SRD\\SRD.txt").toPath();
             Object[]objAr = Files.readAllLines(path, charset).toArray();
             srdSpellNames = Arrays.copyOf(objAr, objAr.length, String[].class);
             System.out.println("SRD Spell Names: " + srdSpellNames.length);
-        } catch (Exception e) {
-            System.err.println("Exception: " + e.toString());
+        }
+        catch (Exception e) {
+            System.err.println("SRD Exception: " + e.toString());
         }
         
         ArrayList<Spell> spells = new ArrayList<Spell>();
         
         // Create Raw spells
+        System.out.println("Creating Raw Spells");
         try {
-            String rawFolder = "D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\SpellHTML";
+            String rawFolder = "D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\SpellHTML";
             String[] rawFiles = (new File(rawFolder)).list();
             System.out.println("Raw Spell Files Count: " + rawFiles.length);
-            PrintWriter pw = new PrintWriter("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\rawSpells.json");
+            PrintWriter pw = new PrintWriter("D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\rawSpells.json");
             pw.println("[");
             for(String file : rawFiles) {
                 //System.out.println("Parsing " + file);
@@ -258,20 +291,23 @@ public class Parser {
             }
             pw.println("]");
             pw.flush();
-        } catch (FileNotFoundException e) {
-            System.err.println("Exception: " + e.toString());
+        }
+        catch (FileNotFoundException e) {
+            System.err.println("Raw Exception: " + e.toString());
         }
 
         System.out.println("Spells Ready for Homebrew Count: " + spells.size());
         
         // Sort for legibility
-        Collections.sort(spells);        
+        Collections.sort(spells);
+        
+        // Create Homebrew spells and override same-named raw spells
+        System.out.println("Creating House Spells");
         if(!srdOnly) {   
-            // Create Homebrew spells and override same-named raw spells
             try {        
-                String homebrewFolder = "D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\SpellHomebrew";
+                String homebrewFolder = "D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\SpellHomebrew";
                 String[] homebrewFiles = (new File(homebrewFolder)).list();
-                PrintWriter homebrewPW = new PrintWriter("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\homebrewSpells.json");
+                PrintWriter homebrewPW = new PrintWriter("D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\homebrewSpells.json");
                 homebrewPW.println("[");
                 
                 for(String file : homebrewFiles) {
@@ -299,7 +335,8 @@ public class Parser {
                         // Overwrite old spells
                         boolean overwroteOldSpell = false;
                         for(Spell defunctSpell: spells){
-                            if(defunctSpell.Name.equals(houseSpell.Name)){                            
+                            if(defunctSpell.Name.equals(houseSpell.Name)){//TODO FIX FRONT PARSE: || defunctSpell.Name.equals(houseSpell.OldName)){
+                                defunctSpell.Name = houseSpell.Name;
                                 defunctSpell.Level = houseSpell.Level;
                                 defunctSpell.School = houseSpell.School;
                                 defunctSpell.IsRitual = houseSpell.IsRitual;
@@ -321,11 +358,14 @@ public class Parser {
                 }
                 homebrewPW.println("]");
                 homebrewPW.flush();
-            } catch (FileNotFoundException e) {
-                System.err.println("Exception: " + e.toString());
+            }
+            catch (Exception e) {
+                System.err.println("House Exception: " + e.toString());
             }
         }
 
+        // Flag SRD spells as such
+        System.out.println("Flagging SRD Spells");
         for(int i = 0; i < spells.size(); i++) {
             Spell spell = spells.get(i);
             for(int j = 0; j < srdSpellNames.length; j++) {
@@ -340,11 +380,13 @@ public class Parser {
         System.out.println("Spells Ready for Merge Count: " + spells.size());
         
         // Sort for legibility
+        System.out.println("Sorting Spells");
         Collections.sort(spells);
         
         // Merged JSON
+        System.out.println("Printing Merged JSON");
         try {
-            PrintWriter mergedPW = new PrintWriter("D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\mergedSpells.json");
+            PrintWriter mergedPW = new PrintWriter("D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\mergedSpells.json");
             mergedPW.println("[");
             for(Spell spell : spells){
                 String json = gson.toJson(spell);
@@ -358,17 +400,19 @@ public class Parser {
             }
             mergedPW.println("]");
             mergedPW.flush();
-        } catch(Exception e){
+        }
+        catch(Exception e){
             
         }
 
         System.out.println("Spells Ready for JS Count: " + spells.size());
         
         // Spellbook JS
+        System.out.println("Printing Spellbook JS");
         try {
             String outputDestination = srdOnly
-                ? "D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\SRD.js"
-                : "D:\\Dropbox\\Public\\D&D\\Tools\\API Scripts\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\SpellbookConst.js";
+                ? "D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\SRD.js"
+                : "D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\SpellbookConst.js";
             PrintWriter jsPW = new PrintWriter(outputDestination);
             jsPW.println("if (typeof MarkStart != 'undefined') {MarkStart('SpellList');}");
             jsPW.println("var SpellList = [");
@@ -392,7 +436,8 @@ public class Parser {
             jsPW.println("];");
             jsPW.println("if (typeof MarkStop != 'undefined') {MarkStop('SpellList');}");
             jsPW.flush();
-        } catch(Exception e){
+        }
+        catch(Exception e){
             System.err.println("Exception: " + e.toString());
         }
     }

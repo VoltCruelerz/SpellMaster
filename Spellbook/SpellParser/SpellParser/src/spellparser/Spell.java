@@ -2,6 +2,7 @@ package spellparser;
 
 public class Spell implements Comparable<Spell>{
     public String Name = "";
+    public String OldName = "";
     public int Level = -1;
     public String School = "";
     public boolean IsRitual = false;
@@ -27,8 +28,26 @@ public class Spell implements Comparable<Spell>{
         Classes = classes;
     }
     
+    public Spell(String name, String oldName, int level, String school, boolean isRitual, String castTime, String range, SpellComponents components, String duration, String ability, String desc, String classes) {
+        Name = name;
+        OldName = oldName;
+        Level = level;
+        School = school;
+        IsRitual = isRitual;
+        CastTime = castTime;
+        Range = range;
+        Components = components;
+        Duration = duration;
+        Ability = ability;
+        Desc = desc;
+        Classes = classes;
+    }
+    
     public void Dump() {
         System.out.println("[" + Level + "] " + Name);
+        if (OldName.length() > 0) {
+            System.out.println("- Old Name: " + OldName);
+        }
         System.out.println("- School: " + School);
         System.out.println("- IsRitual: " + IsRitual);
         System.out.println("- CastTime: " + CastTime);
