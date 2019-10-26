@@ -205,6 +205,9 @@ on('ready', () => {
     // Map class name to stat ie Druid => WIS
     const ClassToStatMap = {};
 
+    // The cost of composing sorcery points into spell slots
+    const SlotComposeCost = {}
+
     // Perform initial configuration for caster type mappings
     const BuildMaps = () => {
         CasterModeMultiplier[CasterMode.Full] = 1;
@@ -251,6 +254,12 @@ on('ready', () => {
         ClassToStatMap['Sorcerer'] = 'Charisma';
         ClassToStatMap['Warlock'] = 'Charisma';
         ClassToStatMap['Wizard'] = 'Intelligence';
+
+        SlotComposeCost[1] = 2;
+        SlotComposeCost[2] = 3;
+        SlotComposeCost[3] = 5;
+        SlotComposeCost[4] = 6;
+        SlotComposeCost[5] = 7;
     };
     BuildMaps();
 
@@ -789,8 +798,9 @@ on('ready', () => {
         Filtering: 2,
         Tools: 3,
         Prepared: 4,
-        Spells: 5,
-        PrepLists: 6,
+        SorcPoints: 5,
+        Spells: 6,
+        PrepLists: 7,
         AllSpellLevels: [0,1,2,3,4,5,6,7,8,9,10]
     };
 
@@ -925,6 +935,22 @@ on('ready', () => {
             toolsStr = cachedBook.ToolsStr;
         }
         text += toolsStr;
+        
+        // =================================================================================
+        // Sorcery Points
+        let sorcStr = '';
+        if (dirtyCaches.includes(CacheOptions.All) || dirtyCaches.includes(CacheOptions.SorcPoints)) {
+            dlog('Rebuilding Sorcery Points');
+            const curSorcPoints = CreateLink(`[${spellbook.CurSorc}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --SetCurSorc ^?{Set current sorcery points}^`);
+            const maxSorcPoints = CreateLink(`[${spellbook.MaxSorc}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --SetMaxSorc ^?{Set maximum sorcery points}^`);
+            const composeSorcPoints = CreateLink(`[Compose Slot]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --ComposeSlot ^?{What level spell slot would you like to compose from sorcery points as a bonus action|L1=2p,1|L2=3p,2|L3=5p,3|L4=6p,4|L5=7p,5}^`);
+            sorcStr += `<b>Sorcery Points:</b> ${curSorcPoints} / ${maxSorcPoints} - ${composeSorcPoints}<br/>`;
+            cachedBook.sorcStr = sorcStr;
+        } else {
+            dlog('Using Cached Sorc Points');
+            sorcStr = cachedBook.sorcStr;
+        }
+        text += sorcStr;
 
         // =================================================================================
         // Prepared Spell Count
@@ -967,9 +993,12 @@ on('ready', () => {
 
                 const curSlotLink = CreateLink(`[${spellbook.CurSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Cur^ --ParamValue ^?{Please enter the new current value for Slot Level ${i}}^`);
                 const maxSlotLink = CreateLink(`[${spellbook.MaxSlots[i-1]}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSlot ^${i}^ --ParamName ^Max^ --ParamValue ^?{Please enter the new maximum value for Slot Level ${i}}^`);
+                const decomposeLink = spellbook.MaxSorc > 0 && spellbook.CurSlots[i-1] > 0
+                    ? ' - ' + CreateLink(`[Decompose]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --DecomposeSlot ^${i}^`)
+                    : '';
                 const fullListLink = CreateLink(`[...]`, `!SpellMaster --PrintKnowables ^${spellbook.Name}^ --Level ^${i}^`);
                 levelStr += i > 0
-                    ? `<h3>Level ${i} Spells - ${curSlotLink} / ${maxSlotLink} - ${fullListLink}</h3>`
+                    ? `<h3>Level ${i} Spells - ${curSlotLink} / ${maxSlotLink}${decomposeLink} - ${fullListLink}</h3>`
                     : `<h3>Cantrips - ${fullListLink}</h3>`;
     
                 // Print all spells at current level
@@ -1566,6 +1595,8 @@ on('ready', () => {
                 ActivePrepList: 0,
                 // The below fields are set to default values and will be populated later
                 KnownSpells: [],
+                CurSorc: 0,
+                MaxSorc: 0,
                 CurSlots: [-1,-1,-1,-1,-1,-1,-1,-1,-1],
                 MaxSlots: [-1,-1,-1,-1,-1,-1,-1,-1,-1]
             };
@@ -1658,6 +1689,10 @@ on('ready', () => {
             const setSlots = GetParamValue(argParams, 'SetSlots');
             const flushCache = GetParamValue(argParams, 'FlushCache');
             const levelUp = GetParamValue(argParams, 'LevelUp');
+            const curSorc = GetParamValue(argParams, 'SetCurSorc');
+            const maxSorc = GetParamValue(argParams, 'SetMaxSorc');
+            const composeSlot = GetParamValue(argParams, 'ComposeSlot');
+            const decomposeSlot = GetParamValue(argParams, 'DecomposeSlot');
 
             // Parameters
             const paramName = GetParamValue(argParams, 'ParamName');
@@ -2014,10 +2049,53 @@ on('ready', () => {
                         knownSpell.CurSlots = knownSpell.MaxSlots;
                     }
 
+                    spellbook.CurSorc = spellbook.MaxSorc;
+
                     sendChat(scname, `${spellbook.Owner} has finished a long rest to restore ${spellbook.Name}`);
                 }
+                dirtyCaches.push(CacheOptions.SorcPoints);
                 dirtyCaches.push(CacheOptions.Spells);
                 dirtyLevels = CacheOptions.AllSpellLevels;
+            } else if (curSorc) {
+                spellbook.CurSorc = parseInt(curSorc);
+                dirtyCaches.push(CacheOptions.SorcPoints);
+            } else if (maxSorc) {
+                spellbook.MaxSorc = parseInt(maxSorc);
+                spellbook.CurSorc = Math.min(spellbook.CurSorc, spellbook.MaxSorc);
+                dirtyCaches.push(CacheOptions.SorcPoints);
+                dirtyCaches.push(CacheOptions.Spells);
+                dirtyLevels = CacheOptions.AllSpellLevels;
+            } else if (composeSlot) {
+                const slotInt = parseInt(composeSlot);
+                const remainder = spellbook.CurSorc - SlotComposeCost[slotInt];
+                const slotIndex = slotInt-1;
+                if (remainder >= 0) {
+                    if (spellbook.CurSlots[slotIndex] === spellbook.MaxSlots[slotIndex]) {
+                        sendChat(scname, `Warning: ${spellbook.Owner} has already filled all of their level ${slotInt} spell slots.  Another cannot be composed at this time.`);
+                    } else {
+                        spellbook.CurSorc = remainder;
+                        spellbook.CurSlots[slotIndex]++;
+                        dirtyLevels.push(slotInt);
+                        dirtyCaches.push(CacheOptions.Spells);
+                        dirtyCaches.push(CacheOptions.SorcPoints);
+                        sendChat(scname, `${spellbook.Owner} has used a bonus action to compose a new level ${slotInt} spell slot from sorcery points.`);
+                    }
+                } else {
+                    sendChat(scname, `Warning: ${spellbook.Owner} does not have enough sorcery points to create a slot of level ${slotInt}.  (${spellbook.CurSorc}/${SlotComposeCost[slotInt]}).`);
+                }
+            } else if (decomposeSlot) {
+                if (spellbook.CurSorc === spellbook.MaxSorc) {
+                    sendChat(scname, `Warning: ${spellbook.Owner} is already at maximum sorcery points.`);
+                } else {
+                    const slotInt = parseInt(decomposeSlot);
+                    spellbook.CurSorc = Math.min(spellbook.CurSorc+slotInt, spellbook.MaxSorc);
+                    const slotIndex = slotInt-1;
+                    spellbook.CurSlots[slotIndex]--;
+                    dirtyLevels.push(slotInt);
+                    dirtyCaches.push(CacheOptions.Spells);
+                    dirtyCaches.push(CacheOptions.SorcPoints);
+                    sendChat(scname, `${spellbook.Owner} has used a bonus action to decompose a level ${slotInt} spell slot into sorcery points.`);
+                }
             } else if (levelUp) {
                 if (levelUp !== 'Yes') {
                     return;
