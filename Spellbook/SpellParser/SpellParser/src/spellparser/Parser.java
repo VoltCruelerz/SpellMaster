@@ -17,12 +17,31 @@ import java.util.List;
 import com.google.gson.*;
 
 import java.io.FileNotFoundException;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+
+import java.nio.charset.StandardCharsets;
 
 import java.util.Arrays;
 import java.util.Collections;
 
+import javax.sound.sampled.Line;
+
 public class Parser {
+    public String FixLine(String line, String type, int lineNumber) {
+        String oldLine = line;
+        // Get rid of bad quotes -_-
+        line = line.replaceAll("&rsquo;", "'");
+        
+        /*if (!oldLine.equals(line)) {
+            System.out.println(" - Fixed " + type + " Line at " + lineNumber);
+            System.out.println("   - Old Line: " + oldLine);
+            System.out.println("   - New Line: " + line);
+        }*/
+        
+        return line;
+    }
+    
     public String ExciseString(String src, String leftTag, String rightTag){
         try{
             String trimmedSrc = src.trim();
@@ -101,8 +120,8 @@ public class Parser {
 
         for(int i = 0; i < lines.length; i++){
             String line = (String)lines[i];
-            line = line.trim();
-            line = line.replace("&rsquo;", "'");// Get rid of bad quotes -_-
+            line = FixLine(line.trim(), "Raw", i);
+            
             // Name
             if(line.indexOf(titleStartTag) == 0){
                 name = ExciseString(line, titleStartTag, titleEndTag);
@@ -133,6 +152,7 @@ public class Parser {
                 // Skip ahead a few lines and begin parsing the description
                 for(int j = i+4; j < lines.length; j++){
                     String descLine = ((String)lines[j]).replace(badBreakTag, goodBreakTag).trim();
+                    descLine = FixLine(descLine, "House Desc", j);
                     if(descLine.equals(pEnd)){
                         break;
                     } else {
@@ -187,13 +207,19 @@ public class Parser {
         ArrayList<String> classList = new ArrayList<String>();
         
         ArrayList<Spell> retVal = new ArrayList<Spell>();
+        boolean foundCantripsYet = false;
         
         for(int i = 0; i < lines.length; i++){
             try{
                 String line = (String)lines[i];
-                if (line.indexOf("Level ") == 0 || line.indexOf("Cantrips") == 0 || line.trim().length() == 0) {
+                if (line.indexOf("Cantrips") == 0) {
+                    foundCantripsYet = true;
                     continue;
                 }
+                if (!foundCantripsYet || line.indexOf("Level ") == 0 || line.trim().length() == 0) {
+                    continue;
+                }            
+                line = FixLine(line, "Homebrew", i);
                 name = ExciseString(line, "] ", " [");
                 oldName = GetOldName(line);
                 //System.out.println("Name: " + name);
@@ -410,10 +436,12 @@ public class Parser {
         // Spellbook JS
         System.out.println("Printing Spellbook JS");
         try {
+            System.out.println("  - Printing to SRD Only? " + srdOnly);
+            ArrayList<String> actualPrinted = new ArrayList<>();
             String outputDestination = srdOnly
                 ? "D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\SRD.js"
                 : "D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\SpellbookConst.js";
-            PrintWriter jsPW = new PrintWriter(outputDestination);
+            PrintWriter jsPW = new PrintWriter(outputDestination, "UTF-8");
             jsPW.println("if (typeof MarkStart != 'undefined') {MarkStart('SpellList');}");
             jsPW.println("var SpellList = [");
             for(int i = 0; i < spells.size(); i++) {
@@ -432,10 +460,31 @@ public class Parser {
                     jsPW.println();
                 }
                 jsPW.flush();
+                if (spell.OldName.equals("")) {
+                    actualPrinted.add(spell.Name);
+                } else {
+                    actualPrinted.add(spell.OldName);
+                }
             }
             jsPW.println("];");
             jsPW.println("if (typeof MarkStop != 'undefined') {MarkStop('SpellList');}");
             jsPW.flush();
+            System.out.println("Printed " + actualPrinted.size() + " spells");
+            
+            for (int i = 0; i < srdSpellNames.length; i++) {
+                String srdName = srdSpellNames[i].trim().toLowerCase();
+                boolean found = false;
+                for (int j = 0; j < actualPrinted.size(); j++) {
+                    String printName = actualPrinted.get(j).trim().toLowerCase();
+                    if (srdName.equals(printName)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    System.out.println("WARNING: Unablet to locate " + srdName);
+                }
+            }
         }
         catch(Exception e){
             System.err.println("Exception: " + e.toString());
@@ -443,7 +492,7 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        new Parser(true);
-        new Parser(false);
+        boolean srdOnly = true;
+        new Parser(srdOnly);
     }
 }

@@ -44,7 +44,7 @@ Faerie Fire
 False Life 
 Feather Fall 
 Find Familiar 
-Floating Disk 
+Tenser's Floating Disk 
 Fog Cloud 
 Goodberry 
 Grease 
@@ -52,7 +52,7 @@ Guiding Bolt
 Healing Word 
 Hellish Rebuke 
 Heroism 
-Hideous Laughter 
+Tasha's Hideous Laughter 
 Hunter's Mark 
 Identify 
 Illusory Script 
@@ -71,12 +71,12 @@ Sleep
 Speak with Animals 
 Thunderwave 
 Unseen Servant
-Acid Arrow 
+Melf's Acid Arrow 
 Aid 
 Alter Self 
 Animal Messenger 
 Arcane Lock 
-Arcanist's Magic Aura 
+Nystul's Magic Aura 
 Augury 
 Barkskin 
 Blindness/Deafness 
@@ -109,7 +109,7 @@ Magic Weapon
 Mirror Image 
 Misty Step 
 Moonbeam 
-Pass without Trace 
+Pass Without Trace 
 Prayer of Healing 
 Protection from Poison 
 Ray of Enfeeblement 
@@ -161,7 +161,7 @@ Speak with Dead
 Speak with Plants 
 Spirit Guardians 
 Stinking Cloud 
-Tiny Hut 
+Leomund's Tiny Hut 
 Tongues 
 Vampiric Touch 
 Water Breathing 
@@ -169,7 +169,7 @@ Water Walk
 Wind Wall
 Arcane Eye 
 Banishment 
-Black Tentacles 
+Evard's Black Tentacles 
 Blight 
 Compulsion 
 Confusion 
@@ -181,7 +181,7 @@ Dimension Door
 Divination 
 Dominate Beast 
 Fabricate 
-Faithful Hound 
+Mordenkainen's Faithful Hound 
 Fire Shield 
 Freedom of Movement 
 Giant Insect 
@@ -192,15 +192,15 @@ Ice Storm
 Locate Creature 
 Phantasmal Killer 
 Polymorph 
-Private Sanctum 
-Resilient Sphere 
-Secret Chest 
+Mordenkainen's Private Sanctum 
+Otiluke's Resilient Sphere 
+Leomund's Secret Chest 
 Stone Shape 
 Stoneskin 
 Wall of Fire
 Animate Objects 
 Antilife Shell 
-Arcane Hand 
+Bigby's Hand 
 Awaken 
 Cloudkill 
 Commune 
@@ -230,7 +230,7 @@ Reincarnate
 Scrying 
 Seeming 
 Telekinesis 
-Telepathic Bond 
+Rary's Telepathic Bond 
 Teleportation Circle 
 Tree Stride 
 Wall of Force 
@@ -246,14 +246,14 @@ Eyebite
 Find the Path 
 Flesh to Stone 
 Forbiddance 
-Freezing Sphere 
+Otiluke's Freezing Sphere 
 Globe of Invulnerability 
 Guards and Wards 
 Harm 
 Heal 
 Heroes' Feast 
-Instant Summons 
-Irresistible Dance 
+Drawmij's Instant Summons 
+Otto's Irresistible Dance 
 Magic Jar 
 Mass Suggestion 
 Move Earth 
@@ -266,7 +266,7 @@ Wall of Ice
 Wall of Thorns 
 Wind Walk 
 Word of Recall
-Arcane Sword 
+Mordenkainen's Sword 
 Conjure Celestial 
 Delayed Blast Fireball 
 Divine Word 
@@ -274,7 +274,7 @@ Etherealness
 Finger of Death 
 Fire Storm 
 Forcecage 
-Magnificent Mansion 
+Mordenkainen's Magnificent Mansion 
 Mirage Arcane 
 Plane Shift 
 Prismatic Spray 

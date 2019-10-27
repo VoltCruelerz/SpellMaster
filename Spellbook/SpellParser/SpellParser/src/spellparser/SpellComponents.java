@@ -40,4 +40,8 @@ public class SpellComponents {
         
         return str;
     }
+    
+    public String Dump() {
+        return "V=" + V + ", S=" + S + ", M=" + M + " (" + MDetails + ")";
+    }
 }

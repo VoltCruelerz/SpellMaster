@@ -25,9 +25,10 @@ public class Spell implements Comparable<Spell>{
         Duration = duration;
         Ability = ability;
         Desc = desc;
-        Classes = classes;
+        Classes = classes.trim();
     }
     
+    // Specify Old Name
     public Spell(String name, String oldName, int level, String school, boolean isRitual, String castTime, String range, SpellComponents components, String duration, String ability, String desc, String classes) {
         Name = name;
         OldName = oldName;
@@ -40,7 +41,7 @@ public class Spell implements Comparable<Spell>{
         Duration = duration;
         Ability = ability;
         Desc = desc;
-        Classes = classes;
+        Classes = classes.trim();
     }
     
     public void Dump() {
@@ -52,7 +53,7 @@ public class Spell implements Comparable<Spell>{
         System.out.println("- IsRitual: " + IsRitual);
         System.out.println("- CastTime: " + CastTime);
         System.out.println("- Range: " + Range);
-        System.out.println("- Components: " + Components);
+        System.out.println("- Components: " + Components.Dump());
         System.out.println("- Duration: " + Duration);
         System.out.println("- Desc: " + Desc);
         System.out.println("- Classes: " + Classes);
