@@ -9,7 +9,7 @@ const SpellDict = {};
 const SpellMasterInstall = () => {
     const defaultSettings = {
         Sheet: 'OGL',
-        Version: 1.6
+        Version: 1.7
     };
     if(!state.SpellMaster) {
         state.SpellMaster = defaultSettings;
@@ -22,7 +22,7 @@ const SpellMasterInstall = () => {
         if (BookDict.hasOwnProperty(bookName)) {
             const spellBook = BookDict[bookName];
 
-            // Version 1.31 -> 1.4 add Filter.CastTime
+            // Version 1.31 -> 1.4: add Filter.CastTime
             if (state.SpellMaster.Version < 1.4) {
                 if (spellBook.Filter) {
                     if (!spellBook.Filter.CastTime) {
@@ -30,6 +30,12 @@ const SpellMasterInstall = () => {
                         log(`Migrating Spellbook ${spellBook.Name} to version 1.4`);
                     }
                 }
+            }
+            // Version 1.5 -> 1.7: add sorcery points
+            if (state.SpellMaster.Version < 1.7) {
+                spellBook.CurSorc = spellBook.CurSorc || 0;
+                spellBook.MaxSorc = spellBook.MaxSorc || 0;
+                log(`Migrating Spellbook ${spellBook.Name} to version 1.7`);
             }
         }
     }
