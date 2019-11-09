@@ -9,7 +9,7 @@ const SpellDict = {};
 const SpellMasterInstall = () => {
     const defaultSettings = {
         Sheet: 'OGL',
-        Version: 1.7
+        Version: 1.8
     };
     if(!state.SpellMaster) {
         state.SpellMaster = defaultSettings;
@@ -1638,7 +1638,7 @@ on('ready', () => {
                 }
 
                 // Add it to the list under the best option
-                if (bestClass === 'Cleric' || bestClass === 'Druid' || bestClass === 'Shaman') {
+                if (bestClass === 'Cleric' || bestClass === 'Druid' || bestClass === 'Shaman' || bestClass === 'Paladin') {
                     knownSpells.push({
                         Name: curSpell.Name,
                         IsExpanded: false,
