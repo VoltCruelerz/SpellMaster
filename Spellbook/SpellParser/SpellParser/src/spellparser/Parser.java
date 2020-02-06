@@ -442,8 +442,9 @@ public class Parser {
                 ? "D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\SRD.js"
                 : "D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\SpellbookConst.js";
             PrintWriter jsPW = new PrintWriter(outputDestination, "UTF-8");
-            jsPW.println("if (typeof MarkStart != 'undefined') {MarkStart('SpellList');}");
-            jsPW.println("var SpellList = [");
+            String listTag = srdOnly ? "Srd" : "Custom";
+            jsPW.println("if (typeof MarkStart != 'undefined') {MarkStart('" + listTag + "SpellList');}");
+            jsPW.println("var " + listTag + "SpellList = [");
             for(int i = 0; i < spells.size(); i++) {
                 Spell spell = spells.get(i);
                 if (srdOnly && spell.Classes.indexOf("SRD") == -1) {
@@ -467,7 +468,7 @@ public class Parser {
                 }
             }
             jsPW.println("];");
-            jsPW.println("if (typeof MarkStop != 'undefined') {MarkStop('SpellList');}");
+            jsPW.println("if (typeof MarkStop != 'undefined') {MarkStop('" + listTag + "SpellList');}");
             jsPW.flush();
             System.out.println("Printed " + actualPrinted.size() + " spells");
             
