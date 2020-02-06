@@ -1,5 +1,5 @@
-if (typeof MarkStart != 'undefined') {MarkStart('SpellList');}
-var SpellList = [
+if (typeof MarkStart != 'undefined') {MarkStart('SrdSpellList');}
+var SrdSpellList = [
     {
         Name: "Acid Splash",
         Level: 0,
@@ -5424,4 +5424,4 @@ var SpellList = [
         Classes: "Sorcerer, Wizard, SRD"
     }
 ];
-if (typeof MarkStop != 'undefined') {MarkStop('SpellList');}
+if (typeof MarkStop != 'undefined') {MarkStop('SrdSpellList');}

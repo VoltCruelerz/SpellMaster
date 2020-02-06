@@ -52,7 +52,19 @@ const SpellMasterInstall = () => {
 SpellMasterInstall();
 
 on('ready', () => {
-    if (!SpellList) throw new Error('SRD.js is not installed!');
+    let SpellList = [];
+    if (typeof CustomSpellList !== 'undefined') {
+        log('SpellMaster: Loading Custom Spell List');
+        SpellList = CustomSpellList;
+    } else if (typeof SrdSpellList !== 'undefined') {
+        log('SpellMaster: Loading SRD Spell List');
+        SpellList = SrdSpellList;
+    } else {
+        const fatalMsg = 'SpellMaster Fatal Error: SRD.js is not installed!  Please install SRD.js or a custom spellbook file.';
+        log(fatalMsg);
+        sendChat('SpellMaster Boot', fatalMsg);
+        throw new Error(fatalMsg);
+    }
 
     const chatTrigger = '!SpellMaster';// This is the trigger that makes the script listen
     const scname = 'SpellMaster';// How this script shows up when it sends chat messages
@@ -98,7 +110,7 @@ on('ready', () => {
         SpellsIndexed = true;
     };
     IndexSpellbook();
-    log("Spellbook Indexed with " + SpellList.length + " spells.");
+    log("Spell List Indexed with " + SpellList.length + " spells.");
     if (debugLog) {
         sendChat(scname, '/w gm Spellbook Indexed with ' + SpellList.length + ' spells.');
     }
@@ -1674,8 +1686,8 @@ on('ready', () => {
                 dlog('Stringifying new spell list...');
                 let isFirst = true;
                 let spellListString = '<pre>';
-                spellListString += `if (typeof MarkStart != 'undefined') {MarkStart('SpellList');}<br/>`;
-                spellListString += `var SpellList = [<br/>`;
+                spellListString += `if (typeof MarkStart != 'undefined') {MarkStart('CustomSpellList');}<br/>`;
+                spellListString += `var CustomSpellList = [<br/>`;
                 for (let i = 0; i < newSpellObjs.length; i++) {
                     const spellObj = newSpellObjs[i];
                     const spellString = OGLSpell.StringifySpellObj(spellObj);
@@ -1687,7 +1699,7 @@ on('ready', () => {
                     }
                 }
                 spellListString += '];<br/>';
-                spellListString += `if (typeof MarkStop != 'undefined') {MarkStop('SpellList');}<br/>`;
+                spellListString += `if (typeof MarkStop != 'undefined') {MarkStop('CustomSpellList');}<br/>`;
                 spellListString += '</pre>';
                 
                 // Print to notes section
