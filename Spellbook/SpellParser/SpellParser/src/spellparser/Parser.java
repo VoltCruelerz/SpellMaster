@@ -492,7 +492,7 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        boolean srdOnly = true;
-        new Parser(srdOnly);
+        new Parser(true);
+        new Parser(false);
     }
 }

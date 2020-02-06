@@ -57,12 +57,18 @@ on('ready', () => {
     const chatTrigger = '!SpellMaster';// This is the trigger that makes the script listen
     const scname = 'SpellMaster';// How this script shows up when it sends chat messages
     const maxSpellLevel = 10;// My campaign has a few NPCs with 10th-level magic
-    let debugLog = true;
+    let debugLog = false;
 
     // Debug Log
     const dlog = (str) => {
         if (debugLog) {
             log(str);
+        }
+    };
+
+    const dStringify = (str, obj) => {
+        if (debugLog) {
+            log(str + JSON.stringify(obj));
         }
     };
 
@@ -725,10 +731,7 @@ on('ready', () => {
                 }
                 autoEval = true;
             } else if (castLevel === 0 && offset <= upcastIndex) {
-                if(casterLevel >= 5) {levelScalar++;}
-                if(casterLevel >= 11) {levelScalar++;}
-                if(casterLevel >= 17) {levelScalar++;}
-                if(casterLevel >= 23) {levelScalar++;}
+                levelScalar = Math.floor((casterLevel + 1) / 6) + 1;
                 autoEval = true;
             }
             
@@ -868,7 +871,7 @@ on('ready', () => {
                 const castLevelString = castLevels.join('|');
                 levelQuery = `What level would you like to activate the ${name} at|${castLevelString}`;
             } else {
-                levelQuery = `Would you like to cast ${name} at level ${spell.Level}|Yes,3|No`;
+                levelQuery = `Would you like to cast ${name} at level ${spell.Level}|Yes,${spell.Level}|No`;
             }
             return castLink = CreateLink(name, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --Activate ^${name}^ --Tier ^?{${levelQuery}}^`);
         } else {
@@ -878,15 +881,49 @@ on('ready', () => {
 
     /**
      * Prints an enchantment
-     * @param {Object} spellbook
+     * @param {Object} book
      * @param {Object} item
      * @param {Object} enchantment
      * @param {number} tier
+     * @param {Object} chatMessage
      * @returns The string printed to chat log.
      */
-    const PrintEnchantment = (spellbook, item, enchantment, tier) => {
+    const PrintEnchantment = (book, item, enchantment, tier, chatMessage) => {
         const name = enchantment.SpellName || enchantment.CustomName;
         sendChat(scname, 'Print Enchantment: ' + name + ' at ' + tier);
+        const char = GetCharByAny(book.Owner);
+        let cachedBook = Cache.Books[book.Name];
+        const dcValue = parseInt(enchantment.DC) || 0;
+        const manualDC = dcValue !== 0;
+        const stat = manualDC ? 'Manual DC' : enchantment.DC;
+
+        const casterInfo = GetCasterInfo(char, book, cachedBook, stat, dcValue, manualDC);
+        const attackRollStr = casterInfo.AttackRollStr;
+        const dc = casterInfo.DC;
+        let casterLevel = casterInfo.CasterLevel;
+
+        if (enchantment.SpellName) {
+            const spell = SpellDict[enchantment.SpellName];
+            let spellDetails = GetSpellDetails(book, stat, '', dcValue, spell, false);
+            // Synthetically re-level the caster for cantrip enchantments
+            if (spell.Level === 0) {
+                const grade = tier + 1;
+                tier = 0;
+                casterLevel = Math.max(6 * (grade - 1) - 1, 1);
+            }
+            spellDetails = GetUpcastString(spell, tier, spellDetails, casterLevel);
+
+            let parseableDetails = spellDetails.toLowerCase();
+            let isSpellAttack = parseableDetails.includes('spell attack');
+            const saveString = IdentifySaves(parseableDetails);
+
+            const descriptionFull = `<b>- DC:</b> ${dc} ${saveString}<br>${spellDetails}`;
+
+            const whisperToggle = GetCachedAttr(char, cachedBook, 'whispertoggle') === '/w gm ';
+            return PublishMagicEffect(item.Name, spell, isSpellAttack, attackRollStr, descriptionFull, chatMessage, whisperToggle);
+        } else {
+            flog('Printing Custom Enchantments is not yet supported.');
+        }
     };
 
     // The various subsections of a spellbook that can be cached
@@ -1073,7 +1110,6 @@ on('ready', () => {
             dlog('Rebuilding Items');
             inventoryStr += '<h2>Items</h2>';
             inventoryStr += '<hr>';
-            dlog('Spellbook: ' + JSON.stringify(spellbook));
             spellbook.Items.forEach((item) => {
                 let itemStr = '';
                 const isAttunedLink = CreateLink(`[${item.Attuned ? 'X' : '_'}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --ParamName ^Attuned^ --ParamValue ^${!item.Attuned}^`);
@@ -1101,7 +1137,7 @@ on('ready', () => {
                         const chargeCostLink = CreateLink(`[${enchantment.ChargeCost}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --UpdateEnchantment ^${enchantmentName}^ --ParamName ^ChargeCost^ --ParamValue ^?{Please input the new charge cost}^`);
                         const expandEnchantmentLink = CreateLink(`[${enchantment.Expanded ? '-' : '+'}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --UpdateEnchantment ^${enchantmentName}^ --ParamName ^Expanded^ --ParamValue ^${!enchantment.Expanded}^`);
                         const upcastCostLink = CreateLink(enchantment.UpcastCost, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --UpdateEnchantment ^${enchantmentName}^ --ParamName ^UpcastCost^ --ParamValue ^?{Please input the new upcast cost per level}^`);
-                        const upcastLink = CreateLink(`${enchantment.Upcast ? 'Upcast Cost: ' : 'No Upcast'}`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --UpdateEnchantment ^${enchantmentName}^ --ParamName ^Upcast^ --ParamValue ^?{Does this item require attunement|Yes|No}^`);
+                        const upcastLink = CreateLink(`${enchantment.Upcast ? 'Upcast Cost: ' : 'No Upcast'}`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --UpdateEnchantment ^${enchantmentName}^ --ParamName ^Upcast^ --ParamValue ^?{Can you upcast this spell|Yes|No}^`);
                         const upcastStr = `<b>- ${upcastLink}</b> ${enchantment.Upcast ? upcastCostLink : ''}<br/>`;
                         const deleteEnchantmentLink = CreateLink(`[Delete]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --DeleteEnchantment ^${enchantmentName}^ --Confirm ^?{Type Yes to confirm deletion}^`);
                         const dcLink = CreateLink(enchantment.DC, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --UpdateEnchantment ^${enchantmentName}^ --ParamName ^DC^ --ParamValue ^?{Please choose the DC.  Spell attack will be calculated|Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma|0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30}^`);
@@ -1109,10 +1145,6 @@ on('ready', () => {
                         if (enchantment.SpellName) {
                             if (enchantment.Expanded) {
                                 const spell = SpellDict[enchantment.SpellName];
-                                dlog('Spell Dict: ' + JSON.stringify(SpellDict));
-                                dlog('Spell Name: ' + enchantment.SpellName);
-                                dlog('Enchantment: ' + JSON.stringify(enchantment));
-                                dlog('Spell: ' + JSON.stringify(spell));
                                 enchantmentStr += `<b>- Cast Time:</b> ${spell.CastTime}<br/>`;
                                 enchantmentStr += `<b>- Range:</b> ${spell.Range}<br/>`;
                                 enchantmentStr += `<b>- Duration:</b> ${spell.Duration}<br/>`;
@@ -1311,14 +1343,14 @@ on('ready', () => {
                     levelStr += `<h4>${prepButton} ${castLink}${tagStr}${titleSlotDisplayStr} - ${expandedText}</h4>`;
                     if (spellInstance.IsExpanded) {
                         levelStr += innerSlotDisplayStr;
+                        if (spell.Level > 0) {
+                            levelStr += ' - ';
+                            levelStr += CreateLink(`<i>${spellInstance.Lock ? 'Always Prepared' : 'Manually Prepared'}</i>`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Lock^ --ParamValue ^${spellInstance.Lock ? 'False' : 'True'}^`);
+                        }
                         levelStr += hr;
                         levelStr += GetSpellDetails(spellbook, spellInstance.Stat, spellInstance.Notes, spellInstance.DC, spell, true);
                         levelStr += br;
                         levelStr += CreateLink('[Delete]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^?{Type Yes to delete ${spell.Name}}^`);
-                        if (spell.Level > 0) {
-                            levelStr += ' - ';
-                            levelStr += CreateLink('[Lock]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Lock^ --ParamValue ^${spellInstance.Lock ? 'False' : 'True'}^`);
-                        }
                         levelStr += hr;
                     }
                 });
@@ -2225,7 +2257,7 @@ on('ready', () => {
             } else if (setSlots) {
                 if (setSlots === 'Full') {
                     // Refill spell level slots
-                    for(let i = 0; i < spellbook.CurSlots.length; i++) {
+                    for (let i = 0; i < spellbook.CurSlots.length; i++) {
                         spellbook.CurSlots[i] = spellbook.MaxSlots[i];
                     }
 
@@ -2234,14 +2266,27 @@ on('ready', () => {
                         const knownSpell = spellbook.KnownSpells[i];
                         knownSpell.CurSlots = knownSpell.MaxSlots;
                     }
+                    dirtyCaches.push(CacheOptions.Spells);
+                    dirtyLevels = CacheOptions.AllSpellLevels;
 
+                    // Refill Sorcery Points
                     spellbook.CurSorc = spellbook.MaxSorc;
+                    dirtyCaches.push(CacheOptions.SorcPoints);
 
+                    // Refil Items
+                    for (let i = 0; i < spellbook.Items.length; i++) {
+                        const item = spellbook.Items[i];
+                        const simpleRefillCount = parseInt(item.RegenRate);
+                        if (isNaN(simpleRefillCount) || item.RegenRate.includes('d') || item.RegenRate.includes('+') || item.RegenRate.includes('-')) {
+                            // We can't begin to try to calculate everything, so simply print to the chat and have the user do it.
+                            sendChat(scname, `${spellbook.Owner}, please update ${item.Name} to have an additional [[${item.RegenRate}]] slots.`);
+                        } else {
+                            item.CurCharges = Math.min(item.CurCharges + simpleRefillCount, item.MaxCharges);
+                            dirtyCaches.push(CacheOptions.Items);
+                        }
+                    }
                     sendChat(scname, `${spellbook.Owner} has finished a long rest to restore ${spellbook.Name}`);
                 }
-                dirtyCaches.push(CacheOptions.SorcPoints);
-                dirtyCaches.push(CacheOptions.Spells);
-                dirtyLevels = CacheOptions.AllSpellLevels;
             } else if (curSorc) {
                 spellbook.CurSorc = parseInt(curSorc);
                 dirtyCaches.push(CacheOptions.SorcPoints);
@@ -2429,7 +2474,7 @@ on('ready', () => {
                     } else {
                         flog('Activating custom enchantments not possible yet.');
                     }
-                    PrintEnchantment(spellbook, item, enchantment, tier);
+                    PrintEnchantment(spellbook, item, enchantment, tier, msg);
                 } else {// Minor config updates
                     if (!paramName) {
                         sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No parameter name provided.`);
