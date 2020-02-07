@@ -9,7 +9,7 @@ const SpellDict = {};
 const SpellMasterInstall = () => {
     const defaultSettings = {
         Sheet: 'OGL',
-        Version: 1.9
+        Version: 2.000
     };
     if(!state.SpellMaster) {
         state.SpellMaster = defaultSettings;
@@ -22,7 +22,7 @@ const SpellMasterInstall = () => {
         if (BookDict.hasOwnProperty(bookName)) {
             const spellBook = BookDict[bookName];
 
-            // Version 1.31 -> 1.4: add Filter.CastTime
+            // Version 1.3 -> 1.4: add Filter.CastTime
             if (state.SpellMaster.Version < 1.4) {
                 if (spellBook.Filter) {
                     if (!spellBook.Filter.CastTime) {
@@ -37,8 +37,14 @@ const SpellMasterInstall = () => {
                 spellBook.MaxSorc = spellBook.MaxSorc || 0;
                 log(`Migrating Spellbook ${spellBook.Name} to version 1.7`);
             }
+            // Version 1.9 -> 1.10: add items
+            if (state.SpellMaster.Version < 2.000) {
+                spellBook.Items = [];
+                log(`Migrating Spellbook ${spellBook.Name} to version 2.000`);
+            }
         }
     }
+    // Update Version Number in State
     if (!state.SpellMaster.Version || state.SpellMaster.Version < defaultSettings.Version) {
         state.SpellMaster.Version = defaultSettings.Version;
     }
@@ -46,7 +52,19 @@ const SpellMasterInstall = () => {
 SpellMasterInstall();
 
 on('ready', () => {
-    if (!SpellList) throw new Error('SRD.js is not installed!');
+    let SpellList = [];
+    if (typeof CustomSpellList !== 'undefined') {
+        log('SpellMaster: Loading Custom Spell List');
+        SpellList = CustomSpellList;
+    } else if (typeof SrdSpellList !== 'undefined') {
+        log('SpellMaster: Loading SRD Spell List');
+        SpellList = SrdSpellList;
+    } else {
+        const fatalMsg = 'SpellMaster Fatal Error: SRD.js is not installed!  Please install SRD.js or a custom spellbook file.';
+        log(fatalMsg);
+        sendChat('SpellMaster Boot', fatalMsg);
+        throw new Error(fatalMsg);
+    }
 
     const chatTrigger = '!SpellMaster';// This is the trigger that makes the script listen
     const scname = 'SpellMaster';// How this script shows up when it sends chat messages
@@ -57,6 +75,12 @@ on('ready', () => {
     const dlog = (str) => {
         if (debugLog) {
             log(str);
+        }
+    };
+
+    const dStringify = (str, obj) => {
+        if (debugLog) {
+            log(str + JSON.stringify(obj));
         }
     };
 
@@ -77,7 +101,7 @@ on('ready', () => {
         Exports: {}
     };
 
-    // Creates dictionary of spell
+    // Creates dictionary of spells
     const IndexSpellbook = () => {
         for(let i = 0; i < SpellList.length; i++){
             let spell = SpellList[i];
@@ -86,7 +110,7 @@ on('ready', () => {
         SpellsIndexed = true;
     };
     IndexSpellbook();
-    log("Spellbook Indexed with " + SpellList.length + " spells.");
+    log("Spell List Indexed with " + SpellList.length + " spells.");
     if (debugLog) {
         sendChat(scname, '/w gm Spellbook Indexed with ' + SpellList.length + ' spells.');
     }
@@ -181,9 +205,7 @@ on('ready', () => {
         const startQuote = quotedString.indexOf('^');
         const endQuote = quotedString.lastIndexOf('^');
         if (startQuote >= endQuote) {
-            if (!quietMode) {
-                sendChat(scname, `**ERROR:** You must have a string within carets in the phrase ${string}`);
-            }
+            sendToGmAndPlayer(`**ERROR:** You must have a string within carets in the phrase ${string}`);
             return null;
         }
         return quotedString.substring(startQuote + 1, endQuote);
@@ -624,8 +646,20 @@ on('ready', () => {
         return instance.Stat === 'Manual DC';
     };
 
+    // Gets the description for the spell
+    const GetSpellDescription = (spell) => {
+        return spell.Desc
+        .replace(/\|/g, "<br/>")// In event user is re-importing homebrew
+        .replace("Higher Level:", "HLCODE")// This order matters to prevent double-hits
+        .replace("Higher Levels:", "HLCODE")
+        .replace("At Higher Level:", "HLCODE")
+        .replace("Higher level:", "HLCODE")
+        .replace("At higher level:", "HLCODE")
+        .replace(/HLCODE/g, '<b>- Higher Levels:</b>');
+    };
+
     // Returns a string that contains the details of a spell (used by expansion and casting)
-    const GetSpellDetails = (book, instance, spell, createLinks) => {
+    const GetSpellDetails = (book, stat, notes, instanceDC, spell, createLinks) => {
         text = "";
         text += `<b>- School:</b> ${spell.School}<br/>`;
         text += `<b>- Cast Time:</b> ${spell.CastTime}<br/>`;
@@ -637,32 +671,25 @@ on('ready', () => {
         componentStr += spell.Components.MDetails ? ` (${spell.Components.MDetails})` : "";
         text += `<b>- Components:</b> ${componentStr}<br/>`;
         text += `<b>- Duration:</b> ${spell.Duration}<br/>`;
-        let descStr = spell.Desc
-            .replace(/\|/g, "<br/>")// In event user is re-importing homebrew
-            .replace("Higher Level:", "HLCODE")// This order matters to prevent double-hits
-            .replace("Higher Levels:", "HLCODE")
-            .replace("At Higher Level:", "HLCODE")
-            .replace("Higher level:", "HLCODE")
-            .replace("At higher level:", "HLCODE")
-            .replace(/HLCODE/g, '<b>- Higher Levels:</b>');
+        let descStr = GetSpellDescription(spell);
         text += `<b>- Description:</b> ${descStr}<br/>`;
         if(createLinks) {
-            const abilityLink = CreateLink('Ability:', `!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^Ability^ --ParamValue ^?{Please select the ability to use when casting this spell.|Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma|Manual DC}^`);
-            text += `<b>- ${abilityLink}</b> ${instance.Stat}<br/>`;
-            if (StatIsManualDC(instance)) {
+            const abilityLink = CreateLink('Ability:', `!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${spell.Name}^ --ParamName ^Ability^ --ParamValue ^?{Please select the ability to use when casting this spell.|Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma|Manual DC}^`);
+            text += `<b>- ${abilityLink}</b> ${stat}<br/>`;
+            if (stat === 'Manual DC') {
                 // 1.0 -> 1.1 version handling
-                if (!instance.DC) {
-                    instance.DC = 8;
+                if (!instanceDC) {
+                    instanceDC = 8;
                 }
-                const dcLink = CreateLink('DC:', `!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^DC^ --ParamValue ^?{Please enter the manually-configured DC}^`);
-                text += `<b>- ${dcLink}</b> ${instance.DC}<br/>`;
+                const dcLink = CreateLink('DC:', `!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${spell.Name}^ --ParamName ^DC^ --ParamValue ^?{Please enter the manually-configured DC}^`);
+                text += `<b>- ${dcLink}</b> ${instanceDC}<br/>`;
             }
-            const notesLink = CreateLink('Notes:',`!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${instance.Name}^ --ParamName ^Notes^ --ParamValue ^?{Please type the new notes section.  You may want to type outside this window and paste for longer messages.  Use html br tag for line breaks.}^`);
-            text += `<b>- ${notesLink}</b> ${instance.Notes}<br/>`;
+            const notesLink = CreateLink('Notes:',`!SpellMaster --UpdateBook ^${book.Name}^ --UpdateSpell ^${spell.Name}^ --ParamName ^Notes^ --ParamValue ^?{Please type the new notes section.  You may want to type outside this window and paste for longer messages.  Use html br tag for line breaks.}^`);
+            text += `<b>- ${notesLink}</b> ${notes}<br/>`;
         } else {
-            text += `<b>- Ability:</b> ${instance.Stat}<br/>`;
-            if (instance.Notes) {
-                text += `<b>- Notes:</b> ${instance.Notes}<br/>`;
+            text += `<b>- Ability:</b> ${stat}<br/>`;
+            if (notes) {
+                text += `<b>- Notes:</b> ${notes}<br/>`;
             }
         }
         text += `<b>- Classes:</b> ${spell.Classes}<br/>`;
@@ -670,33 +697,35 @@ on('ready', () => {
         return text;
     };
 
-    // Prints the spell to the chat when casting a spell
-    const PrintSpell = (book, instance, spell, castLevel, chatMessage) => {
-        const char = GetCharByAny(book.Owner);
-        let cachedBook = Cache.Books[book.Name];
-        const whisperToggle = GetCachedAttr(char, cachedBook, 'whispertoggle') === '/w gm ';
-
-        let dc = 0;
-        let attackRollStr = 0;
+    // Gets caster info
+    const GetCasterInfo = (char, book, cachedBook, stat, customDC, isManualDC) => {
+        let dc;
+        let attackRollStr;
         let casterLevel = 0;
-
-        if (StatIsManualDC(instance)) {
-            dc = parseInt(instance.DC);
+        if (isManualDC) {
+            dc = parseInt(customDC);
             attackRollStr = `[[d20cs>20 + ${dc-8}[ATKMOD]]]`;
         } else {
             const pb = GetCachedAttr(char, cachedBook, 'pb') || 0;
-            const statMod = GetCachedAttr(char, cachedBook, instance.Stat.toLowerCase() + '_mod') || 0;
+            const statMod = GetCachedAttr(char, cachedBook, stat.toLowerCase() + '_mod') || 0;
             const attackMod = GetCachedAttr(char, cachedBook, 'globalmagicmod') || 0;
             const dcMod = GetCachedAttr(char, cachedBook, 'spell_dc_mod') || 0;
             casterLevel = GetCachedAttr(char, cachedBook, 'level') || 0;
             dc = 8 + pb + statMod + dcMod;
     
-            const statString = statMod !== 0 ? ` + ${statMod}[${StatMap[instance.Stat]}]` : '';
+            const statString = statMod !== 0 ? ` + ${statMod}[${StatMap[stat]}]` : '';
             const atkString = attackMod !== 0 ? ` + ${attackMod}[ATKMOD]` : '';
             attackRollStr = `[[@{${book.Owner}|d20}cs>20${statString} + ${pb}[PROF]${atkString}]]`;
         }
-        let spellDetails = GetSpellDetails(book, instance, spell, false);
+        return {
+            DC: dc,
+            AttackRollStr: attackRollStr,
+            CasterLevel: casterLevel
+        };
+    };
 
+    // Generates the upcast string for a spell
+    const GetUpcastString = (spell, castLevel, spellDetails, casterLevel) => {
         const upcastIndex = spellDetails.indexOf('Higher Levels:');
         spellDetails = spellDetails.replace(/(\d+)d(\d+)/gmi, (match, p1, p2, offset, string) => {
 
@@ -714,36 +743,51 @@ on('ready', () => {
                 }
                 autoEval = true;
             } else if (castLevel === 0 && offset <= upcastIndex) {
-                if(casterLevel >= 5) {levelScalar++;}
-                if(casterLevel >= 11) {levelScalar++;}
-                if(casterLevel >= 17) {levelScalar++;}
+                levelScalar = Math.floor((casterLevel + 1) / 6) + 1;
                 autoEval = true;
             }
             
             const retVal = autoEval ? `${prefix}[[${levelScalar*p1}d${p2}]]${suffix}` : match;
             return retVal;
         });
-        let parseableDetails = spellDetails.toLowerCase();
-        let isSpellAttack = parseableDetails.includes('spell attack');
-        let saveString = "";
-        saveString += parseableDetails.includes('strength saving throw') || parseableDetails.includes('strength save') ? "Strength Save" : "";
-        saveString += parseableDetails.includes('dexterity saving throw') || parseableDetails.includes('dexterity save') ? "Dexterity Save" : "";
-        saveString += parseableDetails.includes('constitution saving throw') || parseableDetails.includes('constitution save') ? "Constitution Save" : "";
-        saveString += parseableDetails.includes('intelligence saving throw') || parseableDetails.includes('intelligence save') ? "Intelligence Save" : "";
-        saveString += parseableDetails.includes('wisdom saving throw') || parseableDetails.includes('wisdom save') ? "Wisdom Save" : "";
-        saveString += parseableDetails.includes('charisma saving throw') || parseableDetails.includes('charisma save') ? "Charisma Save" : "";
+        return spellDetails;
+    };
 
-        const descriptionFull = `<b>- DC:</b> ${dc} ${saveString}<br>${spellDetails}`;
+    // Identifies saves, if any exist.  Parameter MUST be lowercased
+    const IdentifySaves = (details) => {
+        let saves = [];
+        if (details.includes('strength saving throw') || details.includes('strength save')) {
+            saves.push("Strength Save");
+        }
+        if (details.includes('dexterity saving throw') || details.includes('dexterity save')) {
+            saves.push("Dexterity Save");
+        }
+        if (details.includes('constitution saving throw') || details.includes('constitution save')) {
+            saves.push("Constitution Save");
+        }
+        if (details.includes('intelligence saving throw') || details.includes('intelligence save')) {
+            saves.push("Intelligence Save");
+        }
+        if (details.includes('wisdom saving throw') || details.includes('wisdom save')) {
+            saves.push("Wisdom Save");
+        }
+        if (details.includes('charisma saving throw') || details.includes('charisma save')) {
+            saves.push("Charisma Save");
+        }
+        return saves.join(',');
+    };
 
-        let spellContents = `&{template:npcatk} `
+    // Pushes a given magical effect to the chat
+    const PublishMagicEffect = (casterName, spell, isSpellAttack, attackRollStr, description, chatMessage, whisperToggle) => {
+        const spellContents = `&{template:npcatk} `
             +`{{attack=1}}  `
-            +`{{name=${book.Owner}}}  `
+            +`{{name=${casterName}}}  `
             +`{{rname=${spell.Name}}}  `
             +`{{rnamec=${spell.Name}}}  `
             +`{{r1=${isSpellAttack ? attackRollStr : '[[0d1]]'}}}  `
             +`{{always=0}}  `
             +`{{r2=${isSpellAttack ? attackRollStr : '[[0d1]]'}}}  `
-            +`{{description=${descriptionFull}}}`;
+            +`{{description=${description}}}`;
 
         dlog("Spell Contents: " + spellContents);
         if (whisperToggle) {
@@ -752,6 +796,29 @@ on('ready', () => {
             sendChat(scname, spellContents);
         }
         return spellContents;
+    }
+
+    // Prints the spell to the chat when casting a spell
+    const PrintSpell = (book, instance, spell, castLevel, chatMessage) => {
+        const char = GetCharByAny(book.Owner);
+        let cachedBook = Cache.Books[book.Name];
+
+        const casterInfo = GetCasterInfo(char, book, cachedBook, instance.Stat, instance.DC, StatIsManualDC(instance));
+        const attackRollStr = casterInfo.AttackRollStr;
+        const dc = casterInfo.DC;
+        const casterLevel = casterInfo.CasterLevel;
+
+        let spellDetails = GetSpellDetails(book, instance.Stat, instance.Notes, instance.DC, spell, false);
+        spellDetails = GetUpcastString(spell, castLevel, spellDetails, casterLevel);
+
+        let parseableDetails = spellDetails.toLowerCase();
+        let isSpellAttack = parseableDetails.includes('spell attack');
+        const saveString = IdentifySaves(parseableDetails);
+
+        const descriptionFull = `<b>- DC:</b> ${dc} ${saveString}<br>${spellDetails}`;
+
+        const whisperToggle = GetCachedAttr(char, cachedBook, 'whispertoggle') === '/w gm ';
+        return PublishMagicEffect(book.Owner, spell, isSpellAttack, attackRollStr, descriptionFull, chatMessage, whisperToggle);
     };
 
     // Prints all knowable spells for a spellbook and given level
@@ -797,6 +864,80 @@ on('ready', () => {
         sendChat(scname, knowables);
     };
 
+    // Gets the link to cast the enchantment
+    const getEnchantmentCastLink = (spellbook, item, enchantment) => {
+        const name = enchantment.SpellName || enchantment.CustomName;
+        const hypotheticalRemainder = item.CurCharges - enchantment.ChargeCost;
+        if (hypotheticalRemainder < 0 || (item.Attunement && !item.Attuned)) {
+            return name;
+        }
+        const maxUpcasts = enchantment.Upcast && enchantment.UpcastCost > 0
+            ? Math.floor(hypotheticalRemainder / enchantment.UpcastCost)
+            : 0;
+        if (enchantment.SpellName) {
+            const spell = SpellDict[name];
+            const castLevels = [];
+            for(let i = 0; i <= maxUpcasts; i++) castLevels.push(spell.Level + i);
+            let levelQuery = '';
+            if (maxUpcasts > 0) {
+                const castLevelString = castLevels.join('|');
+                levelQuery = `What level would you like to activate the ${name} at|${castLevelString}`;
+            } else {
+                levelQuery = `Would you like to cast ${name} at level ${spell.Level}|Yes,${spell.Level}|No`;
+            }
+            return castLink = CreateLink(name, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --Activate ^${name}^ --Tier ^?{${levelQuery}}^`);
+        } else {
+            flog('CUSTOM ENCHANTMENTS NOT IMPLEMENTED');
+        }
+    };
+
+    /**
+     * Prints an enchantment
+     * @param {Object} book
+     * @param {Object} item
+     * @param {Object} enchantment
+     * @param {number} tier
+     * @param {Object} chatMessage
+     * @returns The string printed to chat log.
+     */
+    const PrintEnchantment = (book, item, enchantment, tier, chatMessage) => {
+        const name = enchantment.SpellName || enchantment.CustomName;
+        sendChat(scname, 'Print Enchantment: ' + name + ' at ' + tier);
+        const char = GetCharByAny(book.Owner);
+        let cachedBook = Cache.Books[book.Name];
+        const dcValue = parseInt(enchantment.DC) || 0;
+        const manualDC = dcValue !== 0;
+        const stat = manualDC ? 'Manual DC' : enchantment.DC;
+
+        const casterInfo = GetCasterInfo(char, book, cachedBook, stat, dcValue, manualDC);
+        const attackRollStr = casterInfo.AttackRollStr;
+        const dc = casterInfo.DC;
+        let casterLevel = casterInfo.CasterLevel;
+
+        if (enchantment.SpellName) {
+            const spell = SpellDict[enchantment.SpellName];
+            let spellDetails = GetSpellDetails(book, stat, '', dcValue, spell, false);
+            // Synthetically re-level the caster for cantrip enchantments
+            if (spell.Level === 0) {
+                const grade = tier + 1;
+                tier = 0;
+                casterLevel = Math.max(6 * (grade - 1) - 1, 1);
+            }
+            spellDetails = GetUpcastString(spell, tier, spellDetails, casterLevel);
+
+            let parseableDetails = spellDetails.toLowerCase();
+            let isSpellAttack = parseableDetails.includes('spell attack');
+            const saveString = IdentifySaves(parseableDetails);
+
+            const descriptionFull = `<b>- DC:</b> ${dc} ${saveString}<br>${spellDetails}`;
+
+            const whisperToggle = GetCachedAttr(char, cachedBook, 'whispertoggle') === '/w gm ';
+            return PublishMagicEffect(item.Name, spell, isSpellAttack, attackRollStr, descriptionFull, chatMessage, whisperToggle);
+        } else {
+            flog('Printing Custom Enchantments is not yet supported.');
+        }
+    };
+
     // The various subsections of a spellbook that can be cached
     const CacheOptions = {
         All: 0,
@@ -807,6 +948,7 @@ on('ready', () => {
         SorcPoints: 5,
         Spells: 6,
         PrepLists: 7,
+        Items: 8,
         AllSpellLevels: [0,1,2,3,4,5,6,7,8,9,10]
     };
 
@@ -974,6 +1116,83 @@ on('ready', () => {
         text += preparedStr;
 
         // =================================================================================
+        // Items
+        let inventoryStr = '';
+        if (dirtyCaches.includes(CacheOptions.All) || dirtyCaches.includes(CacheOptions.Items)) {
+            dlog('Rebuilding Items');
+            inventoryStr += '<h2>Items</h2>';
+            inventoryStr += '<hr>';
+            spellbook.Items.forEach((item) => {
+                let itemStr = '';
+                const isAttunedLink = CreateLink(`[${item.Attuned ? 'X' : '_'}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --ParamName ^Attuned^ --ParamValue ^${!item.Attuned}^`);
+                const curChargesLink = CreateLink(`[${item.CurCharges}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --ParamName ^Cur^ --ParamValue ^?{Please enter the new current current value for ${item.Name}}^`);
+                const maxChargesLink = CreateLink(`[${item.MaxCharges}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --ParamName ^Max^ --ParamValue ^?{Please enter the new maximum charges value for ${item.Name}}^`);
+                const isExpandedLink = CreateLink(`[${item.Expanded ? '-' : '+'}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --ParamName ^Expanded^ --ParamValue ^${!item.Expanded}^`);
+                const renameLink = CreateLink(item.Name, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --ParamName ^Name^ --ParamValue ^?{Please enter the new name for ${item.Name}}^`);
+                itemStr += `<h3>${item.Attunement ? isAttunedLink : ''} ${renameLink} - ${curChargesLink} / ${maxChargesLink} - ${isExpandedLink}</h3>`;
+                if (item.Expanded) {
+                    itemStr += hr;
+                    const attunementStr = item.Attunement 
+                        ? `<i>Requires Attunement</i>${br}`
+                        : `<i>Free Access</i>${br}`;
+                    itemStr += CreateLink(attunementStr, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --ParamName ^Attunement^ --ParamValue ^${!item.Attunement}^`);
+                    const appearanceLink = CreateLink('<b>Appearance</b>', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --ParamName ^Appearance^ --ParamValue ^?{Please enter the new appearance for ${item.Name}}^`);
+                    const effectLink = CreateLink('<b>Effect</b>', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --ParamName ^Effect^ --ParamValue ^?{Please enter the new effect for ${item.Name}}^`);
+                    const regenLink = CreateLink('<b>Recharge Rate</b>', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --ParamName ^RegenRate^ --ParamValue ^?{Please enter the new regeneration rate for ${item.Name}}^`);
+                    const addSpellLink = CreateLink('<b>Add Spell Enchantment</b>', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --AddSpell ^?{Please enter the name of the spell.}^ --ChargeCost ^?{Charge Cost}^ --Upcast ^?{Can it be upcast|Yes|No}^ --UpcastCost ^?{Cost per upcast level.  If no upcast, put 0}^ --DC ^?{Please choose the DC.  Spell attack will be calculated|Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma|0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30}^`);
+                    itemStr += appearanceLink + `: ${item.Appearance}${br}`;
+                    itemStr += effectLink + `: ${item.Effect}${br}`;
+                    itemStr += `<h3>Enchantments</h3>`;
+                    item.Enchantments.forEach((enchantment) => {
+                        let enchantmentStr = '';
+                        const enchantmentName = enchantment.SpellName || enchantment.CustomName;
+                        const chargeCostLink = CreateLink(`[${enchantment.ChargeCost}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --UpdateEnchantment ^${enchantmentName}^ --ParamName ^ChargeCost^ --ParamValue ^?{Please input the new charge cost}^`);
+                        const expandEnchantmentLink = CreateLink(`[${enchantment.Expanded ? '-' : '+'}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --UpdateEnchantment ^${enchantmentName}^ --ParamName ^Expanded^ --ParamValue ^${!enchantment.Expanded}^`);
+                        const upcastCostLink = CreateLink(enchantment.UpcastCost, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --UpdateEnchantment ^${enchantmentName}^ --ParamName ^UpcastCost^ --ParamValue ^?{Please input the new upcast cost per level}^`);
+                        const upcastLink = CreateLink(`${enchantment.Upcast ? 'Upcast Cost: ' : 'No Upcast'}`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --UpdateEnchantment ^${enchantmentName}^ --ParamName ^Upcast^ --ParamValue ^?{Can you upcast this spell|Yes|No}^`);
+                        const upcastStr = `<b>- ${upcastLink}</b> ${enchantment.Upcast ? upcastCostLink : ''}<br/>`;
+                        const deleteEnchantmentLink = CreateLink(`[Delete]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --DeleteEnchantment ^${enchantmentName}^ --Confirm ^?{Type Yes to confirm deletion}^`);
+                        const dcLink = CreateLink(enchantment.DC, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --UpdateEnchantment ^${enchantmentName}^ --ParamName ^DC^ --ParamValue ^?{Please choose the DC.  Spell attack will be calculated|Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma|0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30}^`);
+                        enchantmentStr += `<b>${chargeCostLink} ${getEnchantmentCastLink(spellbook, item, enchantment)} ${expandEnchantmentLink}</b><br/>`;
+                        if (enchantment.SpellName) {
+                            if (enchantment.Expanded) {
+                                const spell = SpellDict[enchantment.SpellName];
+                                enchantmentStr += `<b>- Cast Time:</b> ${spell.CastTime}<br/>`;
+                                enchantmentStr += `<b>- Range:</b> ${spell.Range}<br/>`;
+                                enchantmentStr += `<b>- Duration:</b> ${spell.Duration}<br/>`;
+                                enchantmentStr += `<b>- Description:</b> ${GetSpellDescription(spell)}<br/>`;
+                                enchantmentStr += `<b>- DC:</b> ${dcLink}<br/>`
+                                enchantmentStr += upcastStr;
+                                enchantmentStr += `- ${deleteEnchantmentLink}<br/><br/>`;
+                            }
+                        }
+                        itemStr += enchantmentStr;
+                    });
+                    itemStr += addSpellLink + br;
+                    itemStr += regenLink + `: ${item.RegenRate}`;
+                    itemStr += br + br;
+                    itemStr += CreateLink('[Delete]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveItem ^${item.Name}^ --Confirm ^?{Type Yes to delete ${item.Name}}^`);
+                    itemStr += hr;
+                }
+                inventoryStr += itemStr;
+            });
+            inventoryStr += CreateLink('<b>[+]</b>', `!SpellMaster`
+                + ` --UpdateBook ^${spellbook.Name}^`
+                + ` --CreateItem ^?{Please enter the name of the item you would like to create.}^`
+                + ` --Attunement ^?{Does the item require attunement?|Yes|No}^`
+                + ` --MaxCharges ^?{Please enter the maximum charges.  0 is infinite.}^`
+                + ` --RegenRate ^?{Please enter the recharge rate per day.  0 is no recharge or infinite.}^`
+                + ` --Appearance ^?{Please describe the appearance of the item if you wish.}^`
+                + ` --Effect ^?{Please describe the effect of the item if you wish.}^`);
+            inventoryStr += '<hr>';
+            cachedBook.InventoryStr = inventoryStr;
+        } else {
+            dlog('Using Cached Items');
+            inventoryStr = cachedBook.InventoryStr;
+        }
+        text += inventoryStr;
+
+        // =================================================================================
         // Spells
         let spellStr = '';
         if (dirtyCaches.includes(CacheOptions.All) || dirtyCaches.includes(CacheOptions.Spells)) {
@@ -1136,14 +1355,14 @@ on('ready', () => {
                     levelStr += `<h4>${prepButton} ${castLink}${tagStr}${titleSlotDisplayStr} - ${expandedText}</h4>`;
                     if (spellInstance.IsExpanded) {
                         levelStr += innerSlotDisplayStr;
-                        levelStr += hr;
-                        levelStr += GetSpellDetails(spellbook, spellInstance, spell, true);
-                        levelStr += br;
-                        levelStr += CreateLink('[Delete]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^?{Type Yes to delete ${spell.Name}}^`);
                         if (spell.Level > 0) {
                             levelStr += ' - ';
-                            levelStr += CreateLink('[Lock]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Lock^ --ParamValue ^${spellInstance.Lock ? 'False' : 'True'}^`);
+                            levelStr += CreateLink(`<i>${spellInstance.Lock ? 'Always Prepared' : 'Manually Prepared'}</i>`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateSpell ^${spellInstance.Name}^ --ParamName ^Lock^ --ParamValue ^${spellInstance.Lock ? 'False' : 'True'}^`);
                         }
+                        levelStr += hr;
+                        levelStr += GetSpellDetails(spellbook, spellInstance.Stat, spellInstance.Notes, spellInstance.DC, spell, true);
+                        levelStr += br;
+                        levelStr += CreateLink('[Delete]', `!SpellMaster --UpdateBook ^${spellbook.Name}^ --RemoveSpell ^${spell.Name}^ --Confirm ^?{Type Yes to delete ${spell.Name}}^`);
                         levelStr += hr;
                     }
                 });
@@ -1467,8 +1686,8 @@ on('ready', () => {
                 dlog('Stringifying new spell list...');
                 let isFirst = true;
                 let spellListString = '<pre>';
-                spellListString += `if (typeof MarkStart != 'undefined') {MarkStart('SpellList');}<br/>`;
-                spellListString += `var SpellList = [<br/>`;
+                spellListString += `if (typeof MarkStart != 'undefined') {MarkStart('CustomSpellList');}<br/>`;
+                spellListString += `var CustomSpellList = [<br/>`;
                 for (let i = 0; i < newSpellObjs.length; i++) {
                     const spellObj = newSpellObjs[i];
                     const spellString = OGLSpell.StringifySpellObj(spellObj);
@@ -1480,7 +1699,7 @@ on('ready', () => {
                     }
                 }
                 spellListString += '];<br/>';
-                spellListString += `if (typeof MarkStop != 'undefined') {MarkStop('SpellList');}<br/>`;
+                spellListString += `if (typeof MarkStop != 'undefined') {MarkStop('CustomSpellList');}<br/>`;
                 spellListString += '</pre>';
                 
                 // Print to notes section
@@ -1535,14 +1754,14 @@ on('ready', () => {
             return;
         }
         const startParse = new Date();
-        
+        dlog('Received: ' + msg.content);
         const argWords = msg.content.split(/\s+/);
         const argParams = msg.content.split('--');
 
         // Prints the chat UI menu
         // !SpellMaster --Menu
         const printMenu = '--Menu';
-        if(argWords.includes(printMenu)) {
+        if(argWords.includes(printMenu) || msg.content === '!SpellMaster') {
             let menu = `/w gm &{template:desc} {{desc=<h3>Spell Master</h3><hr>`
                 + `[Create Spellbook](!SpellMaster `
                     + `--CreateBook ^?{Please type the name of your previously-created handout to be used for this spellbook.}^ `
@@ -1582,7 +1801,7 @@ on('ready', () => {
                 Handout: handout.id,
                 Owner: owner,
                 Stat: 'Wisdom',
-                PreparationLists: [// An array of arrays of spell names
+                PreparationLists: [// An array of objects with arrays of spell names
                     {
                         Name: 'General',
                         PreparedSpells: []// Will be formatted as an array of spell names that are prepared when a certain list is active
@@ -1605,7 +1824,8 @@ on('ready', () => {
                 CurSorc: 0,
                 MaxSorc: 0,
                 CurSlots: [-1,-1,-1,-1,-1,-1,-1,-1,-1],
-                MaxSlots: [-1,-1,-1,-1,-1,-1,-1,-1,-1]
+                MaxSlots: [-1,-1,-1,-1,-1,-1,-1,-1,-1],
+                Items: []
             };
 
             RefreshCachedBook(spellbook);
@@ -1700,6 +1920,9 @@ on('ready', () => {
             const maxSorc = GetParamValue(argParams, 'SetMaxSorc');
             const composeSlot = GetParamValue(argParams, 'ComposeSlot');
             const decomposeSlot = GetParamValue(argParams, 'DecomposeSlot');
+            const createItem = GetParamValue(argParams, 'CreateItem');
+            const removeItem = GetParamValue(argParams, 'RemoveItem');
+            const updateItem = GetParamValue(argParams, 'UpdateItem');
 
             // Parameters
             const paramName = GetParamValue(argParams, 'ParamName');
@@ -2046,7 +2269,7 @@ on('ready', () => {
             } else if (setSlots) {
                 if (setSlots === 'Full') {
                     // Refill spell level slots
-                    for(let i = 0; i < spellbook.CurSlots.length; i++) {
+                    for (let i = 0; i < spellbook.CurSlots.length; i++) {
                         spellbook.CurSlots[i] = spellbook.MaxSlots[i];
                     }
 
@@ -2055,14 +2278,27 @@ on('ready', () => {
                         const knownSpell = spellbook.KnownSpells[i];
                         knownSpell.CurSlots = knownSpell.MaxSlots;
                     }
+                    dirtyCaches.push(CacheOptions.Spells);
+                    dirtyLevels = CacheOptions.AllSpellLevels;
 
+                    // Refill Sorcery Points
                     spellbook.CurSorc = spellbook.MaxSorc;
+                    dirtyCaches.push(CacheOptions.SorcPoints);
 
+                    // Refil Items
+                    for (let i = 0; i < spellbook.Items.length; i++) {
+                        const item = spellbook.Items[i];
+                        const simpleRefillCount = parseInt(item.RegenRate);
+                        if (isNaN(simpleRefillCount) || item.RegenRate.includes('d') || item.RegenRate.includes('+') || item.RegenRate.includes('-')) {
+                            // We can't begin to try to calculate everything, so simply print to the chat and have the user do it.
+                            sendChat(scname, `${spellbook.Owner}, please update ${item.Name} to have an additional [[${item.RegenRate}]] slots.`);
+                        } else {
+                            item.CurCharges = Math.min(item.CurCharges + simpleRefillCount, item.MaxCharges);
+                            dirtyCaches.push(CacheOptions.Items);
+                        }
+                    }
                     sendChat(scname, `${spellbook.Owner} has finished a long rest to restore ${spellbook.Name}`);
                 }
-                dirtyCaches.push(CacheOptions.SorcPoints);
-                dirtyCaches.push(CacheOptions.Spells);
-                dirtyLevels = CacheOptions.AllSpellLevels;
             } else if (curSorc) {
                 spellbook.CurSorc = parseInt(curSorc);
                 dirtyCaches.push(CacheOptions.SorcPoints);
@@ -2114,6 +2350,174 @@ on('ready', () => {
                 dirtyCaches.push(CacheOptions.All);
                 dirtyLevels = CacheOptions.AllSpellLevels;
                 sendChat(scname, `Leveled Up for ${spellbook.Name}.`);
+            } else if (createItem) {
+                const itemName = createItem;
+                if (!itemName) {
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No item name provided.`);
+                    return;
+                }
+                const maxChargesStr = GetParamValue(argParams, 'MaxCharges');
+                if (!maxChargesStr) {
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No charges provided.  If the item is chargeless, use 0.`);
+                    return;
+                }
+                const maxCharges = parseInt(maxChargesStr) || 0;
+                const regenRate = GetParamValue(argParams, 'RegenRate');
+                if (!regenRate) {
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No regen rate provided.  If the item has infinite charges or does not recharge, use 0.`);
+                    return;
+                }
+                const attunement = GetParamValue(argParams, 'Attunement') === 'Yes';
+                const appearance = GetParamValue(argParams, 'Appearance');
+                const effect = GetParamValue(argParams, 'Effect');
+                const item = {
+                    Name: itemName,
+                    Attunement: attunement,
+                    CurCharges: maxCharges,
+                    MaxCharges: maxCharges,
+                    RegenRate: regenRate,
+                    Enchantments: [],
+                    Appearance: appearance,
+                    Effect: effect,
+                    Expanded: true,
+                    Attuned: false
+                };
+                spellbook.Items.push(item);
+                dirtyCaches.push(CacheOptions.Items);
+                sendChat(scname, `Added the ${itemName} for ${spellbook.Name}.`);
+            } else if (removeItem) {
+                if (!removeItem) {
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No item to delete provided.`);
+                    return;
+                }
+                spellbook.Items = spellbook.Items.filter((value) => {
+                    return value.Name !== removeItem;
+                });
+                dirtyCaches.push(CacheOptions.Items);
+                sendChat(scname, `Deleted the ${removeItem} from ${spellbook.Name}.`);
+            } else if (updateItem) {
+                if (!updateItem) {
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No item to update provided.`);
+                    return;
+                }
+                let item = spellbook.Items.find((item) => item.Name === updateItem);
+                if (!item) {
+                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No such item exists.`);
+                    return;
+                }
+                const addSpell = GetParamValue(argParams, 'AddSpell');
+                const updateEnchantment = GetParamValue(argParams, 'UpdateEnchantment');
+                const deleteEnchantment = GetParamValue(argParams, 'DeleteEnchantment');
+                const activate = GetParamValue(argParams, 'Activate');
+                if (addSpell) {
+                    if (!SpellDict[addSpell]) {
+                        sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No such spell exists as ${addSpell}.`);
+                        return;
+                    }
+                    const chargeCost = parseInt(GetParamValue(argParams, 'ChargeCost')) || 0;
+                    const upcast = GetParamValue(argParams, 'Upcast') === 'Yes';
+                    const upcastCost = parseInt(GetParamValue(argParams, 'UpcastCost')) || 0;
+                    const dc = GetParamValue(argParams, 'DC') || '0';// Deliberately a string
+                    item.Enchantments.push({
+                        SpellName: addSpell,
+                        ChargeCost: chargeCost,
+                        Upcast: upcast,
+                        UpcastCost: upcastCost,
+                        DC: dc,
+                        Expanded: true
+                    });
+
+                } else if (updateEnchantment) {
+                    let enchantment = item.Enchantments.find((enchantment) => enchantment.SpellName === updateEnchantment || enchantment.CustomName === updateEnchantment);
+                    if (!enchantment) {
+                        sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No such enchantment exists.`);
+                        return;
+                    }
+                    if (!paramName) {
+                        sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No parameter name provided.`);
+                        return;
+                    }
+                    if (!paramValue) {
+                        sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No parameter value provided.`);
+                        return;
+                    }
+                    if (paramName === 'Name') {
+                        if (enchantment.SpellName) {
+                            sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: Spell enchantments cannot be renamed.`);
+                            return;
+                        }
+                        enchantment.CustomName = paramValue;
+                    } else if (paramName === 'Expanded') {
+                        enchantment.Expanded = paramValue === 'true';
+                    } else if (paramName === 'ChargeCost') {
+                        enchantment.ChargeCost = parseInt(paramValue) || 0;
+                    } else if (paramName === 'UpcastCost') {
+                        enchantment.UpcastCost = parseInt(paramValue) || 0;
+                    } else if (paramName === 'Upcast') {
+                        enchantment.Upcast = paramValue === 'Yes';
+                    } else if (paramName === 'DC') {
+                        enchantment.DC = paramValue || 0;
+                    }
+                } else if (deleteEnchantment) {
+                    if (confirm !== 'Yes') {
+                        return;
+                    }
+                    item.Enchantments = item.Enchantments.filter((enchantment) => enchantment.SpellName !== deleteEnchantment && enchantment.CustomName !== deleteEnchantment);
+                } else if (activate) {
+                    let enchantment = item.Enchantments.find((enchantment) => enchantment.SpellName === activate || enchantment.CustomName === activate);
+                    if (!enchantment) {
+                        sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No such enchantment exists.`);
+                        return;
+                    }
+                    const tier = parseInt(GetParamValue(argParams, 'Tier'));
+                    if (isNaN(tier) || tier < 0) {
+                        sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: Invalid activation tier: ${GetParamValue(argParams, 'Tier')}.`);
+                        return;
+                    }
+                    if (enchantment.SpellName) {
+                        const spell = SpellDict[enchantment.SpellName];
+                        const cost = enchantment.ChargeCost + (enchantment.Upcast && enchantment.UpcastCost > 0 ? enchantment.UpcastCost * (tier - spell.Level) : 0);
+                        const remainder = item.CurCharges - cost;
+                        if (remainder < 0) {
+                            sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: Insufficient charges.  Attempted to consume ${cost}, but only ${item.CurCharges} remain.`);
+                            return;
+                        }
+                        item.CurCharges = remainder;
+                    } else {
+                        flog('Activating custom enchantments not possible yet.');
+                    }
+                    PrintEnchantment(spellbook, item, enchantment, tier, msg);
+                } else {// Minor config updates
+                    if (!paramName) {
+                        sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No parameter name provided.`);
+                        return;
+                    }
+                    if (!paramValue) {
+                        sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No parameter value provided.`);
+                        return;
+                    }
+
+                    if (paramName === 'Name') {
+                        item.Name = paramValue;
+                    } else if (paramName === 'Attuned') {
+                        item.Attuned = paramValue === 'true';
+                    } else if (paramName === 'Expanded') {
+                        item.Expanded = paramValue === 'true';
+                    } else if (paramName === 'Cur') {
+                        item.CurCharges = parseInt(paramValue) || 0;
+                    } else if (paramName === 'Max') {
+                        item.MaxCharges = parseInt(paramValue) || 0;
+                    } else if (paramName === 'Attunement') {
+                        item.Attunement = paramValue === 'true';
+                    } else if (paramName === 'Appearance') {
+                        item.Appearance = paramValue;
+                    } else if (paramName === 'Effect') {
+                        item.Effect = paramValue;
+                    } else if (paramName === 'RegenRate') {
+                        item.RegenRate = paramValue;
+                    }
+                }
+                dirtyCaches.push(CacheOptions.Items);
             }
             
             // Filtration
@@ -2242,7 +2646,7 @@ on('ready', () => {
                 const handout = GetHandout(book);
                 // If it's dead, delete it because the user destroyed it.
                 if (handout === null) {
-                    log("WARNING: SpellMaster detected orphan book to be deleted: " + bookName);
+                    log("ALERT: SpellMaster detected an orphaned book.  It will be deleted: " + bookName);
                     delete BookDict[bookName];
                     break;
                 }
