@@ -1,4 +1,4 @@
-![pic] (TazekaPage.PNG)
+![pic](TazekaPage.PNG)
 
 # SpellMaster
 SpellMaster is a total-replacement for the Spells page of the OGL PC character sheet with several additional key features that go beyond the default spells page.
@@ -50,7 +50,7 @@ The preparedness tracker will make its best effort to track spells, even across 
 
 In addition to their primary purpose as magic item tracking, you can use items to track other items or class resources that can trigger spell effects.
 
-![pic] (StaffOfPower.PNG)
+![pic](StaffOfPower.PNG)
 
 ###  Items
 New in SpellMaster 2.000, magic items allow you to track spell enchantments on magic items.  Generally, items function to spells (detailed below), but they have a few additional features of their own.  The below section references the above image.
@@ -64,7 +64,7 @@ New in SpellMaster 2.000, magic items allow you to track spell enchantments on m
 - **Add Spell Enchantment**: Currently, only spell enchantments are supported.  A future release will enable custom enchantments that trigger effects of your design.  Until then, you can always create a new homebrew spell with the effect and enchant with that.
 - **Recharge Rate**: Set the recharge rate.  If set to a constant number, it will automatically regenerate.  If set to a die roll, at this time, it will not automatically recharge, and instead roll in the chat log and instruct the user to increase it themselves.  A future release will automate this.
 
-![pic] (AOO.png)
+![pic](AOO.png)
 
 ### Spells
 Spells appear within their level in alphabetical order.
@@ -85,7 +85,7 @@ Spells appear within their level in alphabetical order.
 
 At the bottom of any spell level, you will find a **[+]**.  Press it to bring up a dialog to add a new spell.  You **MUST** type the name correctly.  It is often easier to use the **[...]** chat menu.
 
-![pic] (PrepLists.PNG)
+![pic](PrepLists.PNG)
 
 ### Preparation Lists
 These function as radio buttons.  Press the checkbox for the spell preparation list of your choice and then make any preparation selections.  These will then be saved if you create a new preparation list and switch to it.  Permanently Prepared spells are global to the spellbook and do not change between preparation lists.  The parenthetical number is the number of spells in that list.  
