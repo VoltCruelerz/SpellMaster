@@ -9,7 +9,7 @@ const SpellDict = {};
 const SpellMasterInstall = () => {
     const defaultSettings = {
         Sheet: 'OGL',
-        Version: 2.000
+        Version: 2.001
     };
     if(!state.SpellMaster) {
         state.SpellMaster = defaultSettings;
@@ -2289,12 +2289,23 @@ on('ready', () => {
                     for (let i = 0; i < spellbook.Items.length; i++) {
                         const item = spellbook.Items[i];
                         const simpleRefillCount = parseInt(item.RegenRate);
+                        
                         if (isNaN(simpleRefillCount) || item.RegenRate.includes('d') || item.RegenRate.includes('+') || item.RegenRate.includes('-')) {
-                            // We can't begin to try to calculate everything, so simply print to the chat and have the user do it.
-                            sendChat(scname, `${spellbook.Owner}, please update ${item.Name} to have an additional [[${item.RegenRate}]] slots.`);
+                            try {
+                                sendChat('', `[[${item.RegenRate}]]`, (rollResult) => {
+                                    const intResult = rollResult[0].inlinerolls[0].results.total;
+                                    item.CurCharges = Math.min(item.CurCharges + intResult, item.MaxCharges);
+                                    dirtyCaches.push(CacheOptions.Items);
+                                    sendChat(scname, `${spellbook.Owner}, ${item.Name} has recovered ${intResult} for a total of ${item.CurCharges}/${item.MaxCharges}.`);
+                                    PrintSpellbook(BookDict[bookName], dirtyCaches, dirtyLevels);
+                                });
+                            } catch (e) {
+                                sendChat(scname, `ERROR: ${spellbook.Owner}, ${item.Name}'s recharge rate could not be parsed: ${item.RegenRate}.`);
+                            }
                         } else {
                             item.CurCharges = Math.min(item.CurCharges + simpleRefillCount, item.MaxCharges);
                             dirtyCaches.push(CacheOptions.Items);
+                            sendChat(scname, `${spellbook.Owner}, ${item.Name} has recovered ${item.RegenRate} for a total of ${item.CurCharges}/${item.MaxCharges}.`);
                         }
                     }
                     sendChat(scname, `${spellbook.Owner} has finished a long rest to restore ${spellbook.Name}`);
