@@ -3,11 +3,11 @@
 # SpellMaster
 SpellMaster is a high-performance total-replacement for the Spells page of the OGL player character sheet with several additional key features that go beyond the default spells page.
 
-It is an Airbag-compatible script specifically built to be expandable and to allow DMs to add homebrew content.  The SRD spells are all provided.  To add additional spells, make use of the Export feature.
+It is an [Airbag](https://app.roll20.net/forum/post/7289686/script-airbag-api-crash-handler)-compatible script specifically built to be expandable and to allow DMs to add homebrew content.  The SRD spells are all provided.  To add additional spells, make use of the Export feature.
 
 ## Features
 
-- **Instant Import:** Instantly add any spell (even homebrew!) in your master spell list to a character's spellbook.  Additionally, you can import a class's entire spell list to a spellbook during setup so your poor Druids and Clerics don't die of old age in Session 0.
+- **Instant Import:** Instantly add any spell (even homebrew!) in your master spell list to a character's spellbook.  Additionally, you can import a class's entire spell list to a spellbook during setup so your poor Druids and Clerics don't die of old age in Session 0.  SpellMaster also provides suggestions, should you mistype a spell name.
 - **Class List Perusing:** Peruse all spells your character could know and easily swap them in and out.
 - **Filtering:** filter by VSM, Ritual, Concentration, Preparedness, Slots Remaining, and the inverse of all of these.  General string search and cast time filtering are also provided.
 - **Preparation Lists:** Create and configure independent lists of prepared spells for every scenario.
@@ -52,7 +52,11 @@ The preparedness tracker will make its best effort to track spells, even across 
 
 ###  Items
 New in SpellMaster 2.000, magic items allow you to track spell enchantments on magic items.  Generally, items function similarly to spells (detailed below), but they have a few additional features of their own.  The below section references the above image.
-- **[X] Staff of Power - [3] / [20] - [-]**: This line denotes that the item is the Staff of Power and currently has 3 of 20 charges.  As with elsewhere in SpellMaster, **[X]** means active (in this case, Attuned), and **[-]** means compress.  Pressing the name itself allows you to rename the item.
+- **[X] Staff of Power - [3] / [20] - [-]**
+    - **[X]**: The staff is currently attuned.  Click to toggle.
+    - **Staff of Power**: Click to rename.
+    - **[3] / [20]**: The item has 3 of 20 maximum charges.  Click a number to change it.  Upon activation, charges are automatically consumed.
+    -  **[-]**: Will collapse the item's details.
 - **Requires Attunement**: This allows you to control whether the item requires attunement or not.  If it requires attunement and is not attuned, its enchantments deactivate.
 - **Appearance**: Describe the appearance of the item.  This is a flavor field and has no mechanical effect.
 - **Effect**: Describe the effect of the item.  This is a flavor field and has no mechanical effect.
@@ -141,12 +145,12 @@ SpellMaster was largely born out of a dissatisfaction with the performance of ex
     - 1.9: Add range searching to general string search.
 - 2.000: Magic Items, one-click install, new version number system
     - 2.001: Enabled auto-rolling of rolled item charges.
+    - 2.002: Damerau-Levenshtein distance suggestions for mistyped spells, item sorting
 
 ## Future Work
 ### Usability
 - **Bug Fixes**: Obviously, bug hunting is always desirable.
 - **Regex Searching**: It's handy!
-- **String Proximity Correction**: When a user mis-types a spell, calculate the Levenshtein Distance to suggest what they probably meant to type.
 - **Shaped Sheet Compatibility**: Support for this is a looooooooong way off, but hey, it'd be nice!
 ### Features
 - **Custom Item Enchantments**: I plan for this, which will likely be the next release.
@@ -157,6 +161,7 @@ SpellMaster was largely born out of a dissatisfaction with the performance of ex
 
 ## Contact
 
+Feel free to contact me at any of the following for comments, suggestions, or bug reports.
 - [github](https://github.com/VoltCruelerz)
 - [Roll20](https://app.roll20.net/users/1583758/gm-michael)
 - [Forums](https://app.roll20.net/forum/post/8109696/script-spellmaster-2-dot-0-5e-ogl-magic-handler-thread-3)

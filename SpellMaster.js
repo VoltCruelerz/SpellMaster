@@ -210,6 +210,94 @@ on('ready', () => {
         }
         return quotedString.substring(startQuote + 1, endQuote);
     };
+
+    // Calculates Damerau-Levenshtein distance.  See: https://stackoverflow.com/a/11958496
+    const levDist = (s, t) => {
+        var d = []; //2d matrix
+    
+        // Step 1
+        var n = s.length;
+        var m = t.length;
+    
+        if (n == 0) return m;
+        if (m == 0) return n;
+    
+        //Create an array of arrays in javascript (a descending loop is quicker)
+        for (var i = n; i >= 0; i--) d[i] = [];
+    
+        // Step 2
+        for (var i = n; i >= 0; i--) d[i][0] = i;
+        for (var j = m; j >= 0; j--) d[0][j] = j;
+    
+        // Step 3
+        for (var i = 1; i <= n; i++) {
+            var s_i = s.charAt(i - 1);
+    
+            // Step 4
+            for (var j = 1; j <= m; j++) {
+    
+                //Check the jagged ld total so far
+                if (i == j && d[i][j] > 4) return n;
+    
+                var t_j = t.charAt(j - 1);
+                var cost = (s_i == t_j) ? 0 : 1; // Step 5
+    
+                //Calculate the minimum
+                var mi = d[i - 1][j] + 1;
+                var b = d[i][j - 1] + 1;
+                var c = d[i - 1][j - 1] + cost;
+    
+                if (b < mi) mi = b;
+                if (c < mi) mi = c;
+    
+                d[i][j] = mi; // Step 6
+    
+                //Damerau transposition
+                if (i > 1 && j > 1 && s_i == t.charAt(j - 2) && s.charAt(i - 2) == t_j) {
+                    d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + cost);
+                }
+            }
+        }
+    
+        // Step 7
+        return d[n][m];
+    }
+
+    /**
+     * Calculate the Damerau-Levenshtein distance to get a list of spell suggestions, which are then printed.
+     * @param input string - the failed spell name to calculate suggestions for
+     * @param inputMessage Object - the source message
+     */
+    const printSpellSuggestions = (input, inputMessage) => {
+        const suggestions = SpellList.map((spell) => {
+            return {
+                Name: spell.Name,
+                Distance: levDist(input, spell.Name)
+            };
+        });
+
+        suggestions.sort(Sorters.DistanceMin);
+        const topSuggestions = [];
+
+        // Print the top suggestions.
+        const maxSuggestions = 5;
+        for(let i = 0; i < maxSuggestions; i++) {
+            topSuggestions.push(suggestions[i].Name);
+        }
+
+        // Also add any substrings (Magic Aura vs Nystul's Magic Aura)
+        SpellList.forEach((spell) => {
+            if ((input.includes(spell.Name) || spell.Name.includes(input)) && !topSuggestions.includes(spell.Name)) {
+                topSuggestions.push(spell.Name);
+            }
+        });
+
+        let message = `The spell ${input} does not exist in our records.  Did you mean one of these?`;
+        topSuggestions.forEach((suggestion) => {
+            message += `<br/>- ${suggestion}`;
+        });
+        sendToGmAndPlayer(inputMessage, message);
+    }
     
     // Enum of caster types
     const CasterMode = {
@@ -539,8 +627,43 @@ on('ready', () => {
                 return 1;
             }
             return 0 // default return value (no sorting)
+        },
+        DistanceMin: (a, b) => {
+            // Sort by level first
+            const distanceA = a.Distance;
+            const distanceB = b.Distance;
+            if (distanceA < distanceB) {
+                return -1;
+            } else if (distanceA > distanceB) {
+                return 1;
+            }
+            return 0 // default return value (no sorting)
+        },
+        CostName: (a, b) => {
+            // Sort by cost first
+            const costA = a.ChargeCost;
+            const costB = b.ChargeCost;
+            if (costA < costB) {
+                return -1;
+            } else if (costA > costB) {
+                return 1;
+            }
 
-        }
+            // Then sort by alpha
+            let nameA = a.SpellName || a.CustomName;
+            let nameB = b.SpellName || b.CustomName;
+            nameA = nameA.toLowerCase();
+            nameB = nameB.toLowerCase();
+            if (nameA < nameB) // sort string ascending
+            {
+                return -1;
+            }
+            if (nameA > nameB)
+            {
+                return 1;
+            }
+            return 0 // default return value (no sorting)
+        },
     };
 
     // Filtration options
@@ -551,7 +674,11 @@ on('ready', () => {
     };
     const FilterSymbols = ['X', '!', '_'];
 
-    // Sends a message to a gm and a player.  If the player is a gm, don't double-send
+    /**
+     * Sends a message to a gm and a player.  If the player is a gm, don't double-send
+     * @param incomingMsg Object - The message that came in and contains the user info.
+     * @param outgoingMsg string - The message to publish.
+     */
     const sendToGmAndPlayer = (incomingMsg, outgoingMsg) => {
         let sendSuccess = false;
         try {
@@ -1122,6 +1249,7 @@ on('ready', () => {
             dlog('Rebuilding Items');
             inventoryStr += '<h2>Items</h2>';
             inventoryStr += '<hr>';
+            spellbook.Items.sort(Sorters.NameAlpha);
             spellbook.Items.forEach((item) => {
                 let itemStr = '';
                 const isAttunedLink = CreateLink(`[${item.Attuned ? 'X' : '_'}]`, `!SpellMaster --UpdateBook ^${spellbook.Name}^ --UpdateItem ^${item.Name}^ --ParamName ^Attuned^ --ParamValue ^${!item.Attuned}^`);
@@ -1143,6 +1271,7 @@ on('ready', () => {
                     itemStr += appearanceLink + `: ${item.Appearance}${br}`;
                     itemStr += effectLink + `: ${item.Effect}${br}`;
                     itemStr += `<h3>Enchantments</h3>`;
+                    item.Enchantments.sort(Sorters.CostName);
                     item.Enchantments.forEach((enchantment) => {
                         let enchantmentStr = '';
                         const enchantmentName = enchantment.SpellName || enchantment.CustomName;
@@ -1949,7 +2078,7 @@ on('ready', () => {
             if (importSpell) {
                 const spell = SpellDict[importSpell];
                 if (!spell) {
-                    sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" Invalid spell name to import: ${importSpell}`);
+                    printSpellSuggestions(importSpell, msg);
                     return;
                 }
                 for (let i = 0; i < spellbook.KnownSpells.length; i++) {
@@ -2422,7 +2551,7 @@ on('ready', () => {
                 const activate = GetParamValue(argParams, 'Activate');
                 if (addSpell) {
                     if (!SpellDict[addSpell]) {
-                        sendChat(scname, `/w "${msg.who.replace(' (GM)', '')}" ERROR: No such spell exists as ${addSpell}.`);
+                        printSpellSuggestions(addSpell, msg);
                         return;
                     }
                     const chargeCost = parseInt(GetParamValue(argParams, 'ChargeCost')) || 0;
