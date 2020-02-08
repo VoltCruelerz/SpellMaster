@@ -14,8 +14,8 @@ public class Spell implements Comparable<Spell>{
     public String Desc = "";
     public String Classes = "";
     
-    public Spell(String name, int level, String school, boolean isRitual, String castTime, String range, SpellComponents components, String duration, String ability, String desc, String classes) {
-        Name = name;
+    public Spell(boolean srdOnly, String name, int level, String school, boolean isRitual, String castTime, String range, SpellComponents components, String duration, String ability, String desc, String classes) {
+        Name = handleSRD(srdOnly, name);
         Level = level;
         School = school;
         IsRitual = isRitual;
@@ -29,9 +29,9 @@ public class Spell implements Comparable<Spell>{
     }
     
     // Specify Old Name
-    public Spell(String name, String oldName, int level, String school, boolean isRitual, String castTime, String range, SpellComponents components, String duration, String ability, String desc, String classes) {
+    public Spell(boolean srdOnly, String name, String oldName, int level, String school, boolean isRitual, String castTime, String range, SpellComponents components, String duration, String ability, String desc, String classes) {
         Name = name;
-        OldName = oldName;
+        OldName = handleSRD(srdOnly, oldName);
         Level = level;
         School = school;
         IsRitual = isRitual;
@@ -42,6 +42,48 @@ public class Spell implements Comparable<Spell>{
         Ability = ability;
         Desc = desc;
         Classes = classes.trim();
+    }
+    
+    public String handleSRD(boolean srdOnly, String originalName) {
+        // The SRD is OGL, and OGL means we need to rip out proper names...
+        if (srdOnly) {
+            if (originalName.equals("Tenser's Floating Disk")) {
+                return "Floating Disk";
+            } else if (originalName.equals("Tasha's Hideous Laughter")) {
+                return "Hideous Laughter";
+            } else if (originalName.equals("Melf's Acid Arrow")) {
+                return "Acid Arrow";
+            } else if (originalName.equals("Nystul's Magic Aura")) {
+                return "Magic Aura";
+            } else if (originalName.equals("Leomund's Tiny Hut")) {
+                return "Tiny Hut";
+            } else if (originalName.equals("Evard's Black Tentacles")) {
+                return "Black Tentacles";
+            } else if (originalName.equals("Mordenkainen's Faithful Hound")) {
+                return "Faithful Hound";
+            } else if (originalName.equals("Mordenkainen's Private Sanctum")) {
+                return "Private Sanctum";
+            } else if (originalName.equals("Otiluke's Resilient Sphere")) {
+                return "Resilient Sphere";
+            } else if (originalName.equals("Leomund's Secret Chest")) {
+                return "Secret Chest";
+            } else if (originalName.equals("Bigby's Hand")) {
+                return "Arcane Hand";
+            } else if (originalName.equals("Rary's Telepathic Bond")) {
+                return "Telepathic Bond";
+            } else if (originalName.equals("Otiluke's Freezing Sphere")) {
+                return "Freezing Sphere";
+            } else if (originalName.equals("Drawmij's Instant Summons")) {
+                return "Instant Summons";
+            } else if (originalName.equals("Otto's Irresistible Dance")) {
+                return "Irresistible Dance";
+            } else if (originalName.equals("Mordenkainen's Sword")) {
+                return "Arcane Sword";
+            } else if (originalName.equals("Mordenkainen's Magnificent Mansion")) {
+                return "Magnificent Mansion";
+            }
+        }
+        return originalName;
     }
     
     public void Dump() {

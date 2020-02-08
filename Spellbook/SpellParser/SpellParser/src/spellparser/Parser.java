@@ -87,7 +87,7 @@ public class Parser {
         }
     }
     
-    public Spell ParseRawSpellFile(Object[] lines){
+    public Spell ParseRawSpellFile(boolean srdOnly, Object[] lines){
         // Tags for catching fields
         String titleStartTag = "<h1 class=\"classic-title\"><span>";
         String titleEndTag = "</span></h1>";
@@ -180,10 +180,10 @@ public class Parser {
         classes = classList.toString();
         classes = classes.replace("[", "");
         classes = classes.replace("]", "");
-        return new Spell(name, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
+        return new Spell(srdOnly, name, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
     }
     
-    public ArrayList<Spell> ParseHouseSpellFile(Object[] lines) {
+    public ArrayList<Spell> ParseHouseSpellFile(boolean srdOnly, Object[] lines) {
         String schoolTag = "School: ";
         String castTag = "Casting Time: ";
         String rangeTag = "Range: ";
@@ -255,7 +255,7 @@ public class Parser {
                     desc = desc + "\n" + descLine;
                 }
                 
-                Spell spell = new Spell(name, oldName, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
+                Spell spell = new Spell(srdOnly, name, oldName, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
                 isRitual = false;
                 retVal.add(spell);
             } catch (Exception e){
@@ -304,7 +304,7 @@ public class Parser {
                     System.err.println("IO Error: " + e.toString());
                 }
                 
-                Spell spell = ParseRawSpellFile(lines);
+                Spell spell = ParseRawSpellFile(srdOnly, lines);
                 String json = gson.toJson(spell);
                 pw.print(json);
                 if(!rawFiles[rawFiles.length-1].equals(file)) {
@@ -346,7 +346,7 @@ public class Parser {
                         System.err.println("IO Error: " + e.toString());
                     }
                     
-                    ArrayList<Spell> houseSpells = ParseHouseSpellFile(lines);
+                    ArrayList<Spell> houseSpells = ParseHouseSpellFile(srdOnly, lines);
                     for(Spell houseSpell : houseSpells){
                         //houseSpell.Dump();
                         String json = gson.toJson(houseSpell);
@@ -471,21 +471,6 @@ public class Parser {
             jsPW.println("if (typeof MarkStop != 'undefined') {MarkStop('" + listTag + "SpellList');}");
             jsPW.flush();
             System.out.println("Printed " + actualPrinted.size() + " spells");
-            
-            for (int i = 0; i < srdSpellNames.length; i++) {
-                String srdName = srdSpellNames[i].trim().toLowerCase();
-                boolean found = false;
-                for (int j = 0; j < actualPrinted.size(); j++) {
-                    String printName = actualPrinted.get(j).trim().toLowerCase();
-                    if (srdName.equals(printName)) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    System.out.println("WARNING: Unablet to locate " + srdName);
-                }
-            }
         }
         catch(Exception e){
             System.err.println("Exception: " + e.toString());

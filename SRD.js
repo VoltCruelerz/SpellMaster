@@ -783,6 +783,23 @@ var SrdSpellList = [
         Classes: "Wizard, SRD"
     },
     {
+        Name: "Floating Disk",
+        Level: 1,
+        School: "Conjuration",
+        IsRitual: true,
+        CastTime: "1 Action",
+        Range: "30 feet",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "a drop of mercury"
+        },
+        Duration: "1 hour",
+        Desc: "This spell creates a circular, horizontal plane of force, 3 feet in diameter and 1 inch thick, that floats 3 feet above the ground in an unoccupied space of your choice that you can see within range.<br/>The disk remains for the duration, and can hold up to 500 pounds. If more weight is placed on it, the spell ends, and everything on the disk falls to the ground.<br/><br/>The disk is immobile while you are within 20 feet of it. If you move more than 20 feet away from it, the disk follows you so that it remains within 20 feet of you. It can more across uneven terrain, up or down stairs, slopes and the like, but it can't cross an elevation change of 10 feet or more. For example, the disk can't move across a 10-foot-deep pit, nor could it leave such a pit if it was created at the bottom.<br/><br/>If you move more than 100 feet from the disk (typically because it can't move around an obstacle to follow you), the spell ends.",
+        Classes: "Wizard, SRD"
+    },
+    {
         Name: "Fog Cloud",
         Level: 1,
         School: "Conjuration",
@@ -900,6 +917,23 @@ var SrdSpellList = [
         Duration: "Concentration, up to 1 minute",
         Desc: "A willing creature you touch is imbued with bravery.<br/>Until the spell ends, the creature is immune to being frightened and gains temporary hit points equal to your spellcasting ability modifier at the start of each of its turns. When the spell ends, the target loses any remaining temporary hit points from this spell.<br/>At higher level: When you cast this spell using a spell slot of 2nd level or higher, you can target one additional creature for each slot level above 1st.",
         Classes: "Bard, Paladin, SRD"
+    },
+    {
+        Name: "Hideous Laughter",
+        Level: 1,
+        School: "Enchantment",
+        IsRitual: false,
+        CastTime: "1 Action",
+        Range: "30 feet",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "tiny tarts and a feather that is waved in the air"
+        },
+        Duration: "Concentration, up to 1 minute",
+        Desc: "A creature of your choice that you can see within range perceives everything as hilariously funny and falls into fits of laughter if this spell affects it. The target must succeed on a Wisdom saving throw or fall prone, becoming incapacitated and unable to stand up for the duration. A creature with an Intelligence score of 4 or less isn't affected.<br/><br/>At the end of each of its turns, and each time it takes damage, the target can make another Wisdom saving throw. The target has advantage on the saving throw ifit's triggered by damage. On a success, the spell ends.",
+        Classes: "Bard, Wizard, SRD"
     },
     {
         Name: "Hunter's Mark",
@@ -1174,40 +1208,6 @@ var SrdSpellList = [
         Classes: "Bard, Druid, Ranger, SRD"
     },
     {
-        Name: "Tasha's Hideous Laughter",
-        Level: 1,
-        School: "Enchantment",
-        IsRitual: false,
-        CastTime: "1 Action",
-        Range: "30 feet",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "tiny tarts and a feather that is waved in the air"
-        },
-        Duration: "Concentration, up to 1 minute",
-        Desc: "A creature of your choice that you can see within range perceives everything as hilariously funny and falls into fits of laughter if this spell affects it. The target must succeed on a Wisdom saving throw or fall prone, becoming incapacitated and unable to stand up for the duration. A creature with an Intelligence score of 4 or less isn't affected.<br/><br/>At the end of each of its turns, and each time it takes damage, the target can make another Wisdom saving throw. The target has advantage on the saving throw ifit's triggered by damage. On a success, the spell ends.",
-        Classes: "Bard, Wizard, SRD"
-    },
-    {
-        Name: "Tenser's Floating Disk",
-        Level: 1,
-        School: "Conjuration",
-        IsRitual: true,
-        CastTime: "1 Action",
-        Range: "30 feet",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "a drop of mercury"
-        },
-        Duration: "1 hour",
-        Desc: "This spell creates a circular, horizontal plane of force, 3 feet in diameter and 1 inch thick, that floats 3 feet above the ground in an unoccupied space of your choice that you can see within range.<br/>The disk remains for the duration, and can hold up to 500 pounds. If more weight is placed on it, the spell ends, and everything on the disk falls to the ground.<br/><br/>The disk is immobile while you are within 20 feet of it. If you move more than 20 feet away from it, the disk follows you so that it remains within 20 feet of you. It can more across uneven terrain, up or down stairs, slopes and the like, but it can't cross an elevation change of 10 feet or more. For example, the disk can't move across a 10-foot-deep pit, nor could it leave such a pit if it was created at the bottom.<br/><br/>If you move more than 100 feet from the disk (typically because it can't move around an obstacle to follow you), the spell ends.",
-        Classes: "Wizard, SRD"
-    },
-    {
         Name: "Thunderwave",
         Level: 1,
         School: "Evocation",
@@ -1240,6 +1240,23 @@ var SrdSpellList = [
         Duration: "1 hour",
         Desc: "This spell creates an invisible, mindless, shapeless force that performs simple tasks at your command until the spell ends. The servant springs into existence in an unoccupied space on the ground within range. It has AC 10, 1 hit point, and a Strength of 2, and it can't attack. If it drops to 0 hit points, the spell ends.<br/><br/>Once on each of your turns as a bonus action, you can mentally command the servant to move up to 15 feet and inteact with an object. The servant can perform simple tasks that a human servant could do, such as fetching things, cleaning, mending, folding clothes, lighting fires, serving food, and pouring wine. Once you give the command, the servant performs the task to the best of its ability until it completes the task, then waits for your next command.<br/><br/>If you command the servant to perform a task that would move it more than 60 feet away from you, the spell ends.",
         Classes: "Bard, Warlock, Wizard, SRD"
+    },
+    {
+        Name: "Acid Arrow",
+        Level: 2,
+        School: "Evocation",
+        IsRitual: false,
+        CastTime: "1 Action",
+        Range: "90 feet",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "powdered rhubarb leaf and an adder's stomach"
+        },
+        Duration: "Instantaneous",
+        Desc: "A shimmering green arrow streaks toward a target within range and bursts in a spray of acid.<br/>Make a ranged spell attack against the target. On a hit, the target takes 4d4 acid damage immediately and 2d4 acid damage at the end of its next turn. On a miss, the arrow splashes the target with acid for half as much of the initial damage and no damage at the end of its next turn.<br/>At higher level: When you cast this spell using a spell slot of 3rd level or higher, the damage (both initial and later) increases by 1d4 for each slot level above 2nd.",
+        Classes: "Wizard, SRD"
     },
     {
         Name: "Aid",
@@ -1769,6 +1786,23 @@ var SrdSpellList = [
         Classes: "Bard, Cleric, Druid, Paladin, Ranger, Wizard, SRD"
     },
     {
+        Name: "Magic Aura",
+        Level: 2,
+        School: "Illusion",
+        IsRitual: false,
+        CastTime: "1 Action",
+        Range: "Touch",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "a small square of silk"
+        },
+        Duration: "24 hours",
+        Desc: "You place an illusion on a creature or an object you touch so that divination spells reveal false information about it.<br/>The target can be a willing creature or an object that isn't being carried or worn by another creature.<br/><br/>When you cast the spell, choose one or both of the following effects. The effect lasts for the duration. If you cast this spell on the same creature or object every day for 30 days, placing the same effect on it each time, the illusion lasts until it is dispelled. <br/><br/><b>False Aura</b><br/>You change the way the target appears to spells and magical effects, such as detect magic, that detect magical auras. You can make a nonmagical object appear magical, a magical object appear nonmagical, or change the object's magical aura so that it appears to belong to a specific school of magic that you choose. When you use this effect on an object, you can make the false magic apparent to any creature that handles the item.<br/><br/><b>Mask</b><br/>You change the way the target appears to spells and magical effects that detect creature types, such as a paladin's Divine Sense or the trigger of a sym bol spell. You choose a creature type and other spells and magical effects treat the target as if it were a creature of that type or of that alignment.",
+        Classes: "Wizard, SRD"
+    },
+    {
         Name: "Magic Mouth",
         Level: 2,
         School: "Illusion",
@@ -1801,23 +1835,6 @@ var SrdSpellList = [
         Duration: "Concentration, up to 1 hour",
         Desc: "You touch a nonmagical weapon. Until the spell ends, that weapon becomes a magic weapon with a +1 bonus to attack rolls and damage rolls.<br/>At higher level: When you cast this spell using a spell slot of 4th level or higher, the bonus increases to +2.<br/>When you use a spell slot of 6th level or higher, the bonus increases to +3.",
         Classes: "Paladin, Wizard, SRD"
-    },
-    {
-        Name: "Melf's Acid Arrow",
-        Level: 2,
-        School: "Evocation",
-        IsRitual: false,
-        CastTime: "1 Action",
-        Range: "90 feet",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "powdered rhubarb leaf and an adder's stomach"
-        },
-        Duration: "Instantaneous",
-        Desc: "A shimmering green arrow streaks toward a target within range and bursts in a spray of acid.<br/>Make a ranged spell attack against the target. On a hit, the target takes 4d4 acid damage immediately and 2d4 acid damage at the end of its next turn. On a miss, the arrow splashes the target with acid for half as much of the initial damage and no damage at the end of its next turn.<br/>At higher level: When you cast this spell using a spell slot of 3rd level or higher, the damage (both initial and later) increases by 1d4 for each slot level above 2nd.",
-        Classes: "Wizard, SRD"
     },
     {
         Name: "Mirror Image",
@@ -1869,23 +1886,6 @@ var SrdSpellList = [
         Duration: "Concentration, up to 1 minute",
         Desc: "A silvery beam of pale light shines down in a 5-footradius, 40-foot-high cylinder centered on a point within range. Until the spell ends, dim light fills the cylinder.<br/><br/><br/>When a creature enters the spell's area for the first time on a turn or starts its turn there, it is engulfed in ghostly flames that cause searing pain, and it must make a Constitution saving throw. It takes 2d10 radiant damage on a failed save, or half as much damage on a successful one.<br/><br/>A shapechanger makes its saving throw with disadvantage. If it fails, it also instantly reverts to its original form and can't assume a different form until it leaves the spell's light.<br/><br/>On each of your turns after you cast this spell, you can use an action to move the beam 60 feet in any direction.<br/>At higher level: When you cast this spell using a spell slot of 3rd level or higher, the damage increases by 1d1O for each slot level above 2nd.",
         Classes: "Druid, SRD"
-    },
-    {
-        Name: "Nystul's Magic Aura",
-        Level: 2,
-        School: "Illusion",
-        IsRitual: false,
-        CastTime: "1 Action",
-        Range: "Touch",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "a small square of silk"
-        },
-        Duration: "24 hours",
-        Desc: "You place an illusion on a creature or an object you touch so that divination spells reveal false information about it.<br/>The target can be a willing creature or an object that isn't being carried or worn by another creature.<br/><br/>When you cast the spell, choose one or both of the following effects. The effect lasts for the duration. If you cast this spell on the same creature or object every day for 30 days, placing the same effect on it each time, the illusion lasts until it is dispelled. <br/><br/><b>False Aura</b><br/>You change the way the target appears to spells and magical effects, such as detect magic, that detect magical auras. You can make a nonmagical object appear magical, a magical object appear nonmagical, or change the object's magical aura so that it appears to belong to a specific school of magic that you choose. When you use this effect on an object, you can make the false magic apparent to any creature that handles the item.<br/><br/><b>Mask</b><br/>You change the way the target appears to spells and magical effects that detect creature types, such as a paladin's Divine Sense or the trigger of a sym bol spell. You choose a creature type and other spells and magical effects treat the target as if it were a creature of that type or of that alignment.",
-        Classes: "Wizard, SRD"
     },
     {
         Name: "Pass Without Trace",
@@ -2466,23 +2466,6 @@ var SrdSpellList = [
         Classes: "Bard, Sorcerer, Warlock, Wizard, SRD"
     },
     {
-        Name: "Leomund's Tiny Hut",
-        Level: 3,
-        School: "Evocation",
-        IsRitual: true,
-        CastTime: "1 Minute",
-        Range: "Self (10-foot-radius hemisphere)",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "a small crystal bead"
-        },
-        Duration: "8 hours",
-        Desc: "A 10-foot-radius immobile dome of force springs into existence around and above you and remains stationary for the duration. The spell ends if you leave its area.<br/><br/>Nine creatures of Medium size or smaller can fit inside the dome with you. The spell fails if its area includes a larger creature or more than nine creatures. Creatures and objects within the dome when you cast this spell can move through it freely. All other creatures and objects are barred from passing through it. Spells and other magical effects can't extend through the dome or be cast through it. The atmosphere inside the space is comfortable and dry, regardless of the weather outside.<br/><br/>Until the spell ends, you can command the interior to become dimly lit or dark. The dome is opaque from the outside, of any color you choose, but it is transparent from the inside.",
-        Classes: "Bard, Wizard, SRD"
-    },
-    {
         Name: "Lightning Bolt",
         Level: 3,
         School: "Evocation",
@@ -2789,6 +2772,23 @@ var SrdSpellList = [
         Classes: "Bard, Sorcerer, Wizard, SRD"
     },
     {
+        Name: "Tiny Hut",
+        Level: 3,
+        School: "Evocation",
+        IsRitual: true,
+        CastTime: "1 Minute",
+        Range: "Self (10-foot-radius hemisphere)",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "a small crystal bead"
+        },
+        Duration: "8 hours",
+        Desc: "A 10-foot-radius immobile dome of force springs into existence around and above you and remains stationary for the duration. The spell ends if you leave its area.<br/><br/>Nine creatures of Medium size or smaller can fit inside the dome with you. The spell fails if its area includes a larger creature or more than nine creatures. Creatures and objects within the dome when you cast this spell can move through it freely. All other creatures and objects are barred from passing through it. Spells and other magical effects can't extend through the dome or be cast through it. The atmosphere inside the space is comfortable and dry, regardless of the weather outside.<br/><br/>Until the spell ends, you can command the interior to become dimly lit or dark. The dome is opaque from the outside, of any color you choose, but it is transparent from the inside.",
+        Classes: "Bard, Wizard, SRD"
+    },
+    {
         Name: "Tongues",
         Level: 3,
         School: "Divination",
@@ -2906,6 +2906,23 @@ var SrdSpellList = [
         Duration: "Concentration, up to 1 minute",
         Desc: "You attempt to send one creature that you can see within range to another place of existence. The target must succeed on a Charisma saving throw or be banished. <br/><br/>If the target is native to the plane of existence you're on, you banish the target to a harmless demiplane. While there, the target is incapacitated. The target remains there until the spell ends, at which point the target reappears in the space it left or in the nearest unoccupied space if that space is occupied. <br/><br/>If the target is native to a different plane of existence that the one you're on, the target is banished with a faint popping noise, returning to its home plane. <br/>If the spell ends before 1 minute has passed, the target reappears in the space it left or in the nearest unoccupied space if that space is occupied. Otherwise, the target doesn't return.<br/>At higher level: When you cast this spell using a spell slot of 5th level or higher, you can target one additional creature for each slot level above 4th.",
         Classes: "Cleric, Paladin, Sorcerer, Warlock, Wizard, SRD"
+    },
+    {
+        Name: "Black Tentacles",
+        Level: 4,
+        School: "Conjuration",
+        IsRitual: false,
+        CastTime: "1 Action",
+        Range: "90 feet",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "a piece of tentacle from a giant octopus or a giant squid"
+        },
+        Duration: "Concentration, up to 1 minute",
+        Desc: "Squirming, ebony tentacles fill a 20-foot square on ground that you can see within range. For the duration, these tentacles turn the ground in the area into difficult terrain. <br/><br/>When a creature enters the affected area for the first time on a turn or starts its turn there, the creature must succeed on a Dexterity saving throw or take 3d6 bludgeoning damage and be restrained by the tentacles until the spell ends. A creature that starts its turn in the area and is already restrained by the tentacles takes 3d6 bludgeoning damage. <br/><br/>A creature restrained by the tentacles can use its action to make a Strength or Dexterity check (its choice) against your spell save DC. On a success, it frees itself.",
+        Classes: "Wizard, SRD"
     },
     {
         Name: "Blight",
@@ -3078,23 +3095,6 @@ var SrdSpellList = [
         Classes: "Druid, Sorcerer, SRD"
     },
     {
-        Name: "Evard's Black Tentacles",
-        Level: 4,
-        School: "Conjuration",
-        IsRitual: false,
-        CastTime: "1 Action",
-        Range: "90 feet",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "a piece of tentacle from a giant octopus or a giant squid"
-        },
-        Duration: "Concentration, up to 1 minute",
-        Desc: "Squirming, ebony tentacles fill a 20-foot square on ground that you can see within range. For the duration, these tentacles turn the ground in the area into difficult terrain. <br/><br/>When a creature enters the affected area for the first time on a turn or starts its turn there, the creature must succeed on a Dexterity saving throw or take 3d6 bludgeoning damage and be restrained by the tentacles until the spell ends. A creature that starts its turn in the area and is already restrained by the tentacles takes 3d6 bludgeoning damage. <br/><br/>A creature restrained by the tentacles can use its action to make a Strength or Dexterity check (its choice) against your spell save DC. On a success, it frees itself.",
-        Classes: "Wizard, SRD"
-    },
-    {
         Name: "Fabricate",
         Level: 4,
         School: "Transmutation",
@@ -3109,6 +3109,23 @@ var SrdSpellList = [
         },
         Duration: "Instantaneous",
         Desc: "You convert raw materials into products of the same material. <br/>For example, you can fabricate a wooden bridge from a clump of trees, a rope from a patch of hemp, and clothes from flax or wool. <br/><br/>Choose raw materials that you can see within range. You can fabricate a Large or smaller object (contained within a 10-foot cube, or eight connected 5-foot cubes), given a sufficient quantity of raw material. If you are working with metal, stone, or another mineral substance, however, the fabricated object can be no larger than Medium (contained within a single 5-foot cube). The quality of objects made by the spell is commensurate with the quality of the raw materials. <br/><br/>Creatures or magic items can't be created or transmuted by this spell. You also can't use it to create items that ordinarily require a high degree of craftsmanship, such as jewelry, weapons, glass, or armor, unless you have proficiency with the type of artisan's tools used to craft such objects.",
+        Classes: "Wizard, SRD"
+    },
+    {
+        Name: "Faithful Hound",
+        Level: 4,
+        School: "Conjuration",
+        IsRitual: false,
+        CastTime: "1 Action",
+        Range: "30 feet",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "a tiny silver whistle, a piece of bone, and a thread"
+        },
+        Duration: "8 hours",
+        Desc: "You conjure a phantom watchdog in an unoccupied space that you can see within range, where it remains for the duration, until you dismiss it as an action, or until you move more than 100 feet away from it.<br/><br/>The hound is invisible to all creatures except you and can't be harmed. When a Small or larger creature comes within 30 feet of it without first speaking the password that you specify when you cast this spell, the hound starts barking loudly. The hound sees invisible creatures and can see into the Ethereal Plane. It ignores illusions.<br/><br/>At the start of each of your turns, the hound attempts to bite one creature within 5 feet of it that is hostile to you. The hound's attack bonus is equal to your spellcasting ability modifier + your proficiency bonus. On a hit, it deals 4d8 piercing damage.",
         Classes: "Wizard, SRD"
     },
     {
@@ -3231,23 +3248,6 @@ var SrdSpellList = [
         Classes: "Druid, Sorcerer, Wizard, SRD"
     },
     {
-        Name: "Leomund's Secret Chest",
-        Level: 4,
-        School: "Conjuration",
-        IsRitual: false,
-        CastTime: "1 Action",
-        Range: "Touch",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "an exquisite chest, 3 feet by 2 feet by 2 feet, constructed from rare materials worth at least 5,000 gp, and a Tiny replica made from the same materials worth at least 50 gp"
-        },
-        Duration: "Instantaneous",
-        Desc: "You hide a chest, and all its contents, on the Ethereal Plane.<br/>You must touch the chest and the miniature replica that serves as a material component for the spell. The chest can contain up to 12 cubic feet of nonliving material (3 feet by 2 feet by 2 feet).<br/><br/>While the chest remains on the Ethereal Plane, you can use an action and touch the replica to recall the chest. It appears in an unoccupied space on the ground within 5 feet of you. You can send the chest back to the Ethereal Plane by using an action and touching both the chest and the replica.<br/><br/>After 60 days, there is a cumulative 5 percent chance per day that the spell's effect ends. This effect ends if you cast this spell again, if the smaller replica chest is destroyed, or if you choose to end the spell as an action. If the spell ends and the larger chest is on the Ethereal Plane, it is irretrievably lost.",
-        Classes: "Wizard, SRD"
-    },
-    {
         Name: "Locate Creature",
         Level: 4,
         School: "Divination",
@@ -3263,57 +3263,6 @@ var SrdSpellList = [
         Duration: "Concentration, up to 1 hour",
         Desc: "Describe or name a creature that is familiar to you. You sense the direction to the creature’s location, as long as that creature is within 1,000 feet of you. If the creature is moving, you know the direction of its movement.<br/><br/>The spell can locate a specific creature known to you, or the nearest creature of a specific kind (such as a human or a unicorn), so long as you have seen such a creature up close – within 30 feet – at least once. If the creature you described or named is in a different form, such as being under the effects of a polymorph spell, this spell doesn’t locate the creature.<br/><br/>This spell can’t locate a creature if running water at least 10 feet wide blocks a direct path between you and the creature.",
         Classes: "Bard, Cleric, Druid, Paladin, Ranger, Wizard, SRD"
-    },
-    {
-        Name: "Mordenkainen's Faithful Hound",
-        Level: 4,
-        School: "Conjuration",
-        IsRitual: false,
-        CastTime: "1 Action",
-        Range: "30 feet",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "a tiny silver whistle, a piece of bone, and a thread"
-        },
-        Duration: "8 hours",
-        Desc: "You conjure a phantom watchdog in an unoccupied space that you can see within range, where it remains for the duration, until you dismiss it as an action, or until you move more than 100 feet away from it.<br/><br/>The hound is invisible to all creatures except you and can't be harmed. When a Small or larger creature comes within 30 feet of it without first speaking the password that you specify when you cast this spell, the hound starts barking loudly. The hound sees invisible creatures and can see into the Ethereal Plane. It ignores illusions.<br/><br/>At the start of each of your turns, the hound attempts to bite one creature within 5 feet of it that is hostile to you. The hound's attack bonus is equal to your spellcasting ability modifier + your proficiency bonus. On a hit, it deals 4d8 piercing damage.",
-        Classes: "Wizard, SRD"
-    },
-    {
-        Name: "Mordenkainen's Private Sanctum",
-        Level: 4,
-        School: "Abjuration",
-        IsRitual: false,
-        CastTime: "10 Minutes",
-        Range: "120 feet",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "a thin sheet of lead, a piece of opaque glass, a wad of cotton or cloth, and powdered chrysolite"
-        },
-        Duration: "24 hours",
-        Desc: "You make an area within range magically secure.<br/>The area is a cube that can be as small as 5 feet to as large as 100 feet on each side. The spell lasts for the duration or until you use an action to dismiss it.<br/><br/>When you cast the spell, you decide what sort of security the spell provides, choosing any or all of the following properties:<br/>* Sound can't pass through the barrier at the edge of the warded area.<br/>* The barrier of the warded area appears dark and foggy, preventing vision (including darkvision) through it.<br/>* Sensors created by divination spells can't appear inside the protected area or pass through the barrier at its perimeter.<br/>* Creatures in the area can't be targeted by divination spells.<br/>* Nothing can teleport into or out of the warded area.<br/>* Planar travel is blocked within the warded area.<br/><br/>Casting this spell on the same spot every day for a year makes this effect permanent.<br/>At higher level: When you cast this spell using a spell slot of 5th level or higher, you can increase the size of the cube by 100 feet for each slot level beyond 4th. Thus you could protect a cube that can be up to 200 feet on one side by using a spell slot o f 5th level.",
-        Classes: "Wizard, SRD"
-    },
-    {
-        Name: "Otiluke's Resilient Sphere",
-        Level: 4,
-        School: "Evocation",
-        IsRitual: false,
-        CastTime: "1 Action",
-        Range: "30 feet",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "a hemispherical piece of clear crystal and a matching hemispherical piece of gum arabic"
-        },
-        Duration: "Concentration, up to 1 minute",
-        Desc: "A sphere of shimmering force encloses a creature or object of Large size or smaller within range. An unwilling creature must make a Dexterity saving throw. On a failed save, the creature is enclosed for the duration.<br/><br/>Nothing---not physical objects, energy, or other spell effects---can pass through the barrier, in or out, though a creature in the sphere can breathe there. The sphere is immune to all damage, and a creature or object inside can't be damaged by attacks or effects originating from outside, nor can a creature inside the sphere damage anything outside it.<br/><br/>The sphere is weightless and just large enough to contain the creature or object inside. An enclosed creature can use its action to push against the sphere's walls and thus roll the sphere at up to half the creature's speed. Similarly, the globe can be picked up and moved by other creatures.<br/><br/>A disintegrate spell targeting the globe destroys it without harming anything inside it.",
-        Classes: "Wizard, SRD"
     },
     {
         Name: "Phantasmal Killer",
@@ -3348,6 +3297,57 @@ var SrdSpellList = [
         Duration: "Concentration, up to 1 hour",
         Desc: "This spell transforms a creature that you can see within range into a new form. An unwilling creature must make a Wisdom saving throw to avoid the effect. A shapechanger automatically succeeds on this saving throw.<br/><br/>The transformation lasts for the duration, or until the target drops to 0 hit points or dies. The new form can be any beast whose challenge rating is equal to or less than the target's (or the target's level, if it doesn't have a challenge rating). The target's game statistics, including mental ability scores, are replaced by the statistics of the chosen beast. It retains its alignment and personality.<br/><br/>The target assumes the hit points of its new form. When it reverts to its normal form, the creature returns to the number of hit points it had before it transformed. If it reverts as a result of dropping to 0 hit points, any excess damage carries over to its normal form. As long as the excess damage doesn't reduce the creature's normal form to 0 hit points, it isn't knocked unconscious.<br/><br/>The creature is limited in the actions it can perform by the nature of its new form, and it can't speak, cast spells, or take any other action that requires hands or speech.<br/><br/>The target's gear melds into the new form. The creature can't activate, use, wield, or otherwise benefit from any of its equipment. This spell can't affect a target that has 0 hit points.",
         Classes: "Bard, Druid, Sorcerer, Wizard, SRD"
+    },
+    {
+        Name: "Private Sanctum",
+        Level: 4,
+        School: "Abjuration",
+        IsRitual: false,
+        CastTime: "10 Minutes",
+        Range: "120 feet",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "a thin sheet of lead, a piece of opaque glass, a wad of cotton or cloth, and powdered chrysolite"
+        },
+        Duration: "24 hours",
+        Desc: "You make an area within range magically secure.<br/>The area is a cube that can be as small as 5 feet to as large as 100 feet on each side. The spell lasts for the duration or until you use an action to dismiss it.<br/><br/>When you cast the spell, you decide what sort of security the spell provides, choosing any or all of the following properties:<br/>* Sound can't pass through the barrier at the edge of the warded area.<br/>* The barrier of the warded area appears dark and foggy, preventing vision (including darkvision) through it.<br/>* Sensors created by divination spells can't appear inside the protected area or pass through the barrier at its perimeter.<br/>* Creatures in the area can't be targeted by divination spells.<br/>* Nothing can teleport into or out of the warded area.<br/>* Planar travel is blocked within the warded area.<br/><br/>Casting this spell on the same spot every day for a year makes this effect permanent.<br/>At higher level: When you cast this spell using a spell slot of 5th level or higher, you can increase the size of the cube by 100 feet for each slot level beyond 4th. Thus you could protect a cube that can be up to 200 feet on one side by using a spell slot o f 5th level.",
+        Classes: "Wizard, SRD"
+    },
+    {
+        Name: "Resilient Sphere",
+        Level: 4,
+        School: "Evocation",
+        IsRitual: false,
+        CastTime: "1 Action",
+        Range: "30 feet",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "a hemispherical piece of clear crystal and a matching hemispherical piece of gum arabic"
+        },
+        Duration: "Concentration, up to 1 minute",
+        Desc: "A sphere of shimmering force encloses a creature or object of Large size or smaller within range. An unwilling creature must make a Dexterity saving throw. On a failed save, the creature is enclosed for the duration.<br/><br/>Nothing---not physical objects, energy, or other spell effects---can pass through the barrier, in or out, though a creature in the sphere can breathe there. The sphere is immune to all damage, and a creature or object inside can't be damaged by attacks or effects originating from outside, nor can a creature inside the sphere damage anything outside it.<br/><br/>The sphere is weightless and just large enough to contain the creature or object inside. An enclosed creature can use its action to push against the sphere's walls and thus roll the sphere at up to half the creature's speed. Similarly, the globe can be picked up and moved by other creatures.<br/><br/>A disintegrate spell targeting the globe destroys it without harming anything inside it.",
+        Classes: "Wizard, SRD"
+    },
+    {
+        Name: "Secret Chest",
+        Level: 4,
+        School: "Conjuration",
+        IsRitual: false,
+        CastTime: "1 Action",
+        Range: "Touch",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "an exquisite chest, 3 feet by 2 feet by 2 feet, constructed from rare materials worth at least 5,000 gp, and a Tiny replica made from the same materials worth at least 50 gp"
+        },
+        Duration: "Instantaneous",
+        Desc: "You hide a chest, and all its contents, on the Ethereal Plane.<br/>You must touch the chest and the miniature replica that serves as a material component for the spell. The chest can contain up to 12 cubic feet of nonliving material (3 feet by 2 feet by 2 feet).<br/><br/>While the chest remains on the Ethereal Plane, you can use an action and touch the replica to recall the chest. It appears in an unoccupied space on the ground within 5 feet of you. You can send the chest back to the Ethereal Plane by using an action and touching both the chest and the replica.<br/><br/>After 60 days, there is a cumulative 5 percent chance per day that the spell's effect ends. This effect ends if you cast this spell again, if the smaller replica chest is destroyed, or if you choose to end the spell as an action. If the spell ends and the larger chest is on the Ethereal Plane, it is irretrievably lost.",
+        Classes: "Wizard, SRD"
     },
     {
         Name: "Stone Shape",
@@ -3435,6 +3435,23 @@ var SrdSpellList = [
         Classes: "Druid, SRD"
     },
     {
+        Name: "Arcane Hand",
+        Level: 5,
+        School: "Evocation",
+        IsRitual: false,
+        CastTime: "1 Action",
+        Range: "120 feet",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "An eggshell and a snakeskin glove"
+        },
+        Duration: "Concentration, up to 1 minute",
+        Desc: "You create a Large hand of shimmering, translucent force in an unoccupied space that you can see within range. The hand lasts for the spell's duration, and it moves at your command, mimicking the movements of your own hand. <br/><br/>The hand is an object that has AC 20 and hit points equal to your hit point maximum. If it drops to 0 hit points, the spell ends. It has a Strength of 26 (+8) and a Dexterity of 10 (+0). The hand doesn't fill its space. <br/><br/>When you cast the spell and as a bonus action on your subsequent turns, you can move the hand up to 60 feet and then cause one of the following effects with it.<br/><br/><b>Clenched Fist&nbsp;</b><br/>The hand strikes one creature or object within 5 feet of it. Make a melee spell attack for the hand using your game statistics. On a hit, the target takes 4d8 force damage. <br/><br/><b>Forceful Hand</b><br/>The hand attempts to push a creature within 5 feet of it in a direction you choose. Make a check with the hand's Strength contested by the Strength (Athletics) check of the target. If the target is Medium or smaller, you have advantage on the check. If you succeed, the hand pushes the target up to 5 feet plus a number of feet equal to five times your spellcasting ability modifier. The hand moves with the target to remain within 5 feet of it. <br/><br/><b>Grasping Hand</b><br/>The hand attempts to grapple a Huge or smaller creature within 5 feet of it. You use the hand's Strength score to resolve the grapple. If the target is Medium or smaller, you have advantage on the check. While the hand is grappling the target, you can use a bonus action to have the hand crush it. When you do so, the target takes bludgeoning damage equal to 2d6 + your spellcasting ability modifier. <br/><br/><b>Interposing Hand</b><br/>The hand interposes itself between you and a creature you choose until you give the hand a different command. The hand moves to stay between you and the target, providing you with half cover against the target. The target can't move through the hand's space if its Strength score is less than or equal to the hand's Strength score. If its Strength score is higher than the hand's Strength score, the target can move toward you through the hand's space, but that space is difficult terrain for the target.<br/>At higher level: When you cast this spell using a spell slot of 6th level or higher, the damage from the clenched fist option increases by 2d8 and the damage from the grasping hand increases by 2d6 for each slot level above 5th.<br/>",
+        Classes: "Wizard, SRD"
+    },
+    {
         Name: "Awaken",
         Level: 5,
         School: "Transmutation",
@@ -3450,23 +3467,6 @@ var SrdSpellList = [
         Duration: "Instantaneous",
         Desc: "After spending the casting time tracing magical pathways within a precious gemstone, you touch a huge or smaller beast or plant. <br/>The target must have either no Intelligence score or an Intelligence of 3 or less. The target gains an Intelligence of 10. The target also gains the ability to speak one language you know. If the target is a plant, it gains the ability to move its limbs, roots, vinces, creepers, and so forth, and it gains senses similar to a huamn's. Your DM chooses statistics appropriate for the awakened plant, such as the statistics for the awakened shrub or the awakened tree. <br/><br/>The awakened beast or plant is charmed by you for 30 days or until you and your companions do anything harmful to it. When the charmed condition ends, the awakened creature chooses whether to remain friendly to you, based on how you treated it while it was charmed.",
         Classes: "Bard, Druid, SRD"
-    },
-    {
-        Name: "Bigby's Hand",
-        Level: 5,
-        School: "Evocation",
-        IsRitual: false,
-        CastTime: "1 Action",
-        Range: "120 feet",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "An eggshell and a snakeskin glove"
-        },
-        Duration: "Concentration, up to 1 minute",
-        Desc: "You create a Large hand of shimmering, translucent force in an unoccupied space that you can see within range. The hand lasts for the spell's duration, and it moves at your command, mimicking the movements of your own hand. <br/><br/>The hand is an object that has AC 20 and hit points equal to your hit point maximum. If it drops to 0 hit points, the spell ends. It has a Strength of 26 (+8) and a Dexterity of 10 (+0). The hand doesn't fill its space. <br/><br/>When you cast the spell and as a bonus action on your subsequent turns, you can move the hand up to 60 feet and then cause one of the following effects with it.<br/><br/><b>Clenched Fist&nbsp;</b><br/>The hand strikes one creature or object within 5 feet of it. Make a melee spell attack for the hand using your game statistics. On a hit, the target takes 4d8 force damage. <br/><br/><b>Forceful Hand</b><br/>The hand attempts to push a creature within 5 feet of it in a direction you choose. Make a check with the hand's Strength contested by the Strength (Athletics) check of the target. If the target is Medium or smaller, you have advantage on the check. If you succeed, the hand pushes the target up to 5 feet plus a number of feet equal to five times your spellcasting ability modifier. The hand moves with the target to remain within 5 feet of it. <br/><br/><b>Grasping Hand</b><br/>The hand attempts to grapple a Huge or smaller creature within 5 feet of it. You use the hand's Strength score to resolve the grapple. If the target is Medium or smaller, you have advantage on the check. While the hand is grappling the target, you can use a bonus action to have the hand crush it. When you do so, the target takes bludgeoning damage equal to 2d6 + your spellcasting ability modifier. <br/><br/><b>Interposing Hand</b><br/>The hand interposes itself between you and a creature you choose until you give the hand a different command. The hand moves to stay between you and the target, providing you with half cover against the target. The target can't move through the hand's space if its Strength score is less than or equal to the hand's Strength score. If its Strength score is higher than the hand's Strength score, the target can move toward you through the hand's space, but that space is difficult terrain for the target.<br/>At higher level: When you cast this spell using a spell slot of 6th level or higher, the damage from the clenched fist option increases by 2d8 and the damage from the grasping hand increases by 2d6 for each slot level above 5th.<br/>",
-        Classes: "Wizard, SRD"
     },
     {
         Name: "Cloudkill",
@@ -3877,23 +3877,6 @@ var SrdSpellList = [
         Classes: "Bard, Cleric, Paladin, SRD"
     },
     {
-        Name: "Rary's Telepathic Bond",
-        Level: 5,
-        School: "Divination",
-        IsRitual: true,
-        CastTime: "1 Action",
-        Range: "30 feet",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "pieces of eggshell from two different kinds of creatures"
-        },
-        Duration: "1 hour",
-        Desc: "You forge a telepathic link among up to eight willing creatures of your choice within range, psychically linking each creature to all the others for the duration. Creatures with Intelligence scores of 2 or less aren't affected by this spell.<br/><br/>Until the spell ends, the targets can communicated telepathically through the bond whether or not they have a common language. The communication is possible over any distance, though it can't extend to other planes of existence.",
-        Classes: "Wizard, SRD"
-    },
-    {
         Name: "Reincarnate",
         Level: 5,
         School: "Transmutation",
@@ -3960,6 +3943,23 @@ var SrdSpellList = [
         Duration: "Concentration, up to 10 minutes",
         Desc: "You gain the ability to move or manipulate creatures or objects by thought.<br/>When you cast the spell, and as your action each round for the duration, you can exert your will on one creature or object that you can see within range, causing the appropriate effect below. You can affect the same target round after round, or choose a new one at any time. If you switch targets, the prior target is no longer affected by the spell.<br/><br/><b>Creature<br/></b>You can try to move a Huge or smaller creature. Make an ability check with your spellcasting ability contested by the creature's Strength check. If you win the contest, you move the creature up to 30 feet in any direction, including upward but not beyond the range of this spell. Until the end of your next turn, the creature is restrained in your telekinetic grip. A creature lifted upward is suspended in mid-air.<br/>On subsequent rounds, you can use your action to attempt to maintain your telekinetic grip on the creature by repeating the contest.<br/><br/><b>Object<br/></b>You can try to move an object that weighs up to 1,000 pounds. If the object isn't being worn or carried, you automatically move it up to 30 feet in any direction, but not beyond the range of this spell.<br/>If the object is worn or carried by a creature, you must make an ability check with your spellcasting ability contested by that creature's Strength check. If you succeed, you pull the object away from that creature and can move it up to 30 feet in any direction but not beyond the range of this spell.<br/>You can exert fine control on objects with your telekinetic grip, such as manipulating a simple tool, opening a door or a container, stowing or retrieving an item from an open container, or pouring the contents from a vial.",
         Classes: "Sorcerer, Wizard, SRD"
+    },
+    {
+        Name: "Telepathic Bond",
+        Level: 5,
+        School: "Divination",
+        IsRitual: true,
+        CastTime: "1 Action",
+        Range: "30 feet",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "pieces of eggshell from two different kinds of creatures"
+        },
+        Duration: "1 hour",
+        Desc: "You forge a telepathic link among up to eight willing creatures of your choice within range, psychically linking each creature to all the others for the duration. Creatures with Intelligence scores of 2 or less aren't affected by this spell.<br/><br/>Until the spell ends, the targets can communicated telepathically through the bond whether or not they have a common language. The communication is possible over any distance, though it can't extend to other planes of existence.",
+        Classes: "Wizard, SRD"
     },
     {
         Name: "Teleportation Circle",
@@ -4149,23 +4149,6 @@ var SrdSpellList = [
         Classes: "Sorcerer, Wizard, SRD"
     },
     {
-        Name: "Drawmij's Instant Summons",
-        Level: 6,
-        School: "Conjuration",
-        IsRitual: true,
-        CastTime: "1 Minute",
-        Range: "Touch",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "a sapphire worth 1,000 gp"
-        },
-        Duration: "Until dispelled",
-        Desc: "You touch an object weighing 10 pounds or less whose longest dimension is 6 feet or less. <br/>The spell leaves an invisible mark on its surface and invisibly inscribes the name of the item on the sapphire you use as the material component. Each time you cast this spell, you must use a different sapphire. <br/><br/>At any time thereafter, you can use your action to speak the item's name and crush the sapphire. The item instantly appears in your hand regardless of physical or planar distances, and the spell ends. If another creature is holding or carrying the item, crushing the sapphire doesn't transport the item to you, but instead you learn who the creature possessing the object is and roughly where that creature is located at that moment. <br/><br/>Dispel magic or a similar effect successfully applied to the sapphire ends this spell's effect.",
-        Classes: "Wizard, SRD"
-    },
-    {
         Name: "Eyebite",
         Level: 6,
         School: "Necromancy",
@@ -4232,6 +4215,23 @@ var SrdSpellList = [
         Duration: "1 day",
         Desc: "You create a ward against magical travel that protects up to 40,000 square feet of floor space to a height of 30 feet above the floor. For the duration, creatures can't teleport into the area or use portals, such as those created by the gate spell, to enter the area. The spell proofs the area against planar travel, and therefore prevents creatures from accessing the area by way of the Astral Plane, Ethereal Plane, Feywild, Shadowfell, or the plane shift spell.<br/><br/>In addition, the spell damages types of creatures that you choose when you cast it. Choose one or more of the following: celestials, elementals, fey, fiends, and undead. When a chosen creature enters the spell's area for the first time on a turn or starts its turn there, the creature takes 5d10 radiant or necrotic damage (your choice when you cast this spell).<br/><br/>When you cast this spell, you can designate a password. A creature that speaks the password as it enters the area takes no damage from the spell.<br/><br/>This spell's area can't overlap with the area of another forbiddance spell. If you cast forbiddance every day for 30 days in the same location, the spell lasts until it is dispelled, and the material components are consumed on the last casting.",
         Classes: "Cleric, SRD"
+    },
+    {
+        Name: "Freezing Sphere",
+        Level: 6,
+        School: "Evocation",
+        IsRitual: false,
+        CastTime: "1 Action",
+        Range: "300 feet",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "a small crystal sphere"
+        },
+        Duration: "Instantaneous",
+        Desc: "A frigid globe of cold energy streaks from your fingertips to a point of your choice within range, where it explodes in a 60-foot-radius sphere.<br/>Each creature within the area must make a Constitution saving throw. On a failed save, a creature takes 10d6 cold damage. On a successful save, it takes half as much damage.<br/><br/>If the globe strikes a body of water or a liquid that is principally water (not including water-based creatures), it freezes the liquid to a depth of 6 inches over an area 30 feet square. This ice lasts for 1 minute. Creatures that were swimming on the surface of frozen water are trapped in the ice. A trapped creature can use an action to make a Strength check against your spell save DC to break free.<br/><br/>You can refrain from firing the globe after completing the spell, if you wish. A small globe about the size of a sling stone, cool to the touch, appears in your hand. At any time, you or a creature you give the globe to can throw the globe (to a range of 40 feet) or hurl it with a sling (to the sling's normal range). It shatters on impact, with the same effect as the normal casting of the spell. You can also set the globe down without shattering it. After 1 minute, if the globe hasn't already shattered, it explodes.<br/>At higher level: When you cast this spell using a spell slot of 7th level or higher, the damage increases by 1d6 for each slot level above 6th",
+        Classes: "Wizard, SRD"
     },
     {
         Name: "Globe of Invulnerability",
@@ -4319,6 +4319,40 @@ var SrdSpellList = [
         Classes: "Cleric, Druid, SRD"
     },
     {
+        Name: "Instant Summons",
+        Level: 6,
+        School: "Conjuration",
+        IsRitual: true,
+        CastTime: "1 Minute",
+        Range: "Touch",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "a sapphire worth 1,000 gp"
+        },
+        Duration: "Until dispelled",
+        Desc: "You touch an object weighing 10 pounds or less whose longest dimension is 6 feet or less. <br/>The spell leaves an invisible mark on its surface and invisibly inscribes the name of the item on the sapphire you use as the material component. Each time you cast this spell, you must use a different sapphire. <br/><br/>At any time thereafter, you can use your action to speak the item's name and crush the sapphire. The item instantly appears in your hand regardless of physical or planar distances, and the spell ends. If another creature is holding or carrying the item, crushing the sapphire doesn't transport the item to you, but instead you learn who the creature possessing the object is and roughly where that creature is located at that moment. <br/><br/>Dispel magic or a similar effect successfully applied to the sapphire ends this spell's effect.",
+        Classes: "Wizard, SRD"
+    },
+    {
+        Name: "Irresistible Dance",
+        Level: 6,
+        School: "Enchantment",
+        IsRitual: false,
+        CastTime: "1 Action",
+        Range: "30 feet",
+        Components: {
+            V: true,
+            S: false,
+            M: false,
+            MDetails: ""
+        },
+        Duration: "Concentration, up to 1 minute",
+        Desc: "Choose one creature that you can see within range. The target begins a comic dance in place: shuffling, tapping its feet, and capering for the duration. Creatures that can't be charmed are immune to this spell.<br/><br/>A dancing creature must use all its movement to dance without leaving its space and has disadvantage on Dexterity saving throws and attack rolls. While the target is affected by this spell, other creatures have advantage on attack rolls against it. As an action, a dancing creature makes a Wisdom saving throw to regain control of itself. On a successful save, the spell ends.",
+        Classes: "Bard, Wizard, SRD"
+    },
+    {
         Name: "Magic Jar",
         Level: 6,
         School: "Necromancy",
@@ -4368,40 +4402,6 @@ var SrdSpellList = [
         Duration: "Concentration, up to 2 hours",
         Desc: "Choose an area of terrain no larger than 40 feet on a side within range. You can reshape dirt, sand, or clay in the area in any manner you choose for the duration. You can raise or lower the area's elevation, create or fill in a trench, erect or flatten a wall, or form a pillar. The extent of any such changes can't exceed half the area's largest dimension. So, if you affect a 40-foot square, you can create a pillar up to 20 feet high, raise or lower the square's elevation by up to 20 feet, dig a trench up to 20 feet deep, and so on. It takes 10 minutes for these changes to complete.<br/><br/>At the end of every 10 minutes you spend concentrating on the spell, you can choose a new area of terrain to affect.<br/><br/>Because the terrain's transformation occurs slowly, creatures in the area can't usually be trapped or injured by the ground's movement.<br/><br/>This spell can't manipulate natural stone or stone construction. Rocks and structures shift to accommodate the new terrain. If the way you shape the terrain would make a structure unstable, it might collapse.<br/><br/>Similarly, this spell doesn't directly affect plant growth. The moved earth carries any plants along with it.",
         Classes: "Druid, Sorcerer, Wizard, SRD"
-    },
-    {
-        Name: "Otiluke's Freezing Sphere",
-        Level: 6,
-        School: "Evocation",
-        IsRitual: false,
-        CastTime: "1 Action",
-        Range: "300 feet",
-        Components: {
-            V: true,
-            S: true,
-            M: true,
-            MDetails: "a small crystal sphere"
-        },
-        Duration: "Instantaneous",
-        Desc: "A frigid globe of cold energy streaks from your fingertips to a point of your choice within range, where it explodes in a 60-foot-radius sphere.<br/>Each creature within the area must make a Constitution saving throw. On a failed save, a creature takes 10d6 cold damage. On a successful save, it takes half as much damage.<br/><br/>If the globe strikes a body of water or a liquid that is principally water (not including water-based creatures), it freezes the liquid to a depth of 6 inches over an area 30 feet square. This ice lasts for 1 minute. Creatures that were swimming on the surface of frozen water are trapped in the ice. A trapped creature can use an action to make a Strength check against your spell save DC to break free.<br/><br/>You can refrain from firing the globe after completing the spell, if you wish. A small globe about the size of a sling stone, cool to the touch, appears in your hand. At any time, you or a creature you give the globe to can throw the globe (to a range of 40 feet) or hurl it with a sling (to the sling's normal range). It shatters on impact, with the same effect as the normal casting of the spell. You can also set the globe down without shattering it. After 1 minute, if the globe hasn't already shattered, it explodes.<br/>At higher level: When you cast this spell using a spell slot of 7th level or higher, the damage increases by 1d6 for each slot level above 6th",
-        Classes: "Wizard, SRD"
-    },
-    {
-        Name: "Otto's Irresistible Dance",
-        Level: 6,
-        School: "Enchantment",
-        IsRitual: false,
-        CastTime: "1 Action",
-        Range: "30 feet",
-        Components: {
-            V: true,
-            S: false,
-            M: false,
-            MDetails: ""
-        },
-        Duration: "Concentration, up to 1 minute",
-        Desc: "Choose one creature that you can see within range. The target begins a comic dance in place: shuffling, tapping its feet, and capering for the duration. Creatures that can't be charmed are immune to this spell.<br/><br/>A dancing creature must use all its movement to dance without leaving its space and has disadvantage on Dexterity saving throws and attack rolls. While the target is affected by this spell, other creatures have advantage on attack rolls against it. As an action, a dancing creature makes a Wisdom saving throw to regain control of itself. On a successful save, the spell ends.",
-        Classes: "Bard, Wizard, SRD"
     },
     {
         Name: "Planar Ally",
@@ -4557,6 +4557,23 @@ var SrdSpellList = [
         Classes: "Cleric, SRD"
     },
     {
+        Name: "Arcane Sword",
+        Level: 7,
+        School: "Evocation",
+        IsRitual: false,
+        CastTime: "1 Action",
+        Range: "60 feet",
+        Components: {
+            V: true,
+            S: true,
+            M: true,
+            MDetails: "a miniature platinum sword with a grip and pommel of copper and zinc, worth 250 gp"
+        },
+        Duration: "Concentration, up to 1 minute",
+        Desc: "You create a sword-shaped plane of force that hovers within range. It lasts for the duration.<br/><br/>When the sword appears, you make a melee spell attack against a target of your choice within 5 feet of the sword. On a hit. the target takes 3d10 force damage. Until the spell ends, you can use a bonus action on each of your turns to move the sword up to 20 feet to a spot you can see and repeat this attack against the same target or a different one.",
+        Classes: "Bard, Wizard, SRD"
+    },
+    {
         Name: "Conjure Celestial",
         Level: 7,
         School: "Conjuration",
@@ -4676,24 +4693,7 @@ var SrdSpellList = [
         Classes: "Bard, Warlock, Wizard, SRD"
     },
     {
-        Name: "Mirage Arcane",
-        Level: 7,
-        School: "Illusion",
-        IsRitual: false,
-        CastTime: "10 Minutes",
-        Range: "Sight",
-        Components: {
-            V: true,
-            S: true,
-            M: false,
-            MDetails: ""
-        },
-        Duration: "10 days",
-        Desc: "You make terrain in an area up to 1 mile square look, sound, smell, and even feel like some other sort of terrain.<br/>The terrain's general shape remains the same, however. Open fields or a road could be made to resemble a swamp, hill, crevasse, or some other difficult or impassable terrain. A pond can be made to seem like a grassy meadow, a precipice like a gentle slope, or a rock-strewn gully like a wide and smooth road.<br/><br/>Similarly, you can alter the appearance of structures, or add them where none are present. The spell doesn't disguise, conceal, or add creatures.<br/><br/>The illusion includes audible, visual, tactile, and olfactory elements, so it can turn clear ground into difficult terrain (or vice versa) or otherwise impede movement through the area. Any piece of the illusory terrain (such as a rock or stick) that is removed from the spell's area disappears immediately.<br/><br/>Creatures with truesight can see through the illusion to the terrain's true form&nbsp;however, all other elements&nbsp;of the illusion remain, so while the creature is aware of&nbsp;the illusion's presence, the creature can still physically&nbsp;interact with the illusion.",
-        Classes: "Bard, Druid, Wizard, SRD"
-    },
-    {
-        Name: "Mordenkainen's Magnificent Mansion",
+        Name: "Magnificent Mansion",
         Level: 7,
         School: "Conjuration",
         IsRitual: false,
@@ -4710,21 +4710,21 @@ var SrdSpellList = [
         Classes: "Bard, Wizard, SRD"
     },
     {
-        Name: "Mordenkainen's Sword",
+        Name: "Mirage Arcane",
         Level: 7,
-        School: "Evocation",
+        School: "Illusion",
         IsRitual: false,
-        CastTime: "1 Action",
-        Range: "60 feet",
+        CastTime: "10 Minutes",
+        Range: "Sight",
         Components: {
             V: true,
             S: true,
-            M: true,
-            MDetails: "a miniature platinum sword with a grip and pommel of copper and zinc, worth 250 gp"
+            M: false,
+            MDetails: ""
         },
-        Duration: "Concentration, up to 1 minute",
-        Desc: "You create a sword-shaped plane of force that hovers within range. It lasts for the duration.<br/><br/>When the sword appears, you make a melee spell attack against a target of your choice within 5 feet of the sword. On a hit. the target takes 3d10 force damage. Until the spell ends, you can use a bonus action on each of your turns to move the sword up to 20 feet to a spot you can see and repeat this attack against the same target or a different one.",
-        Classes: "Bard, Wizard, SRD"
+        Duration: "10 days",
+        Desc: "You make terrain in an area up to 1 mile square look, sound, smell, and even feel like some other sort of terrain.<br/>The terrain's general shape remains the same, however. Open fields or a road could be made to resemble a swamp, hill, crevasse, or some other difficult or impassable terrain. A pond can be made to seem like a grassy meadow, a precipice like a gentle slope, or a rock-strewn gully like a wide and smooth road.<br/><br/>Similarly, you can alter the appearance of structures, or add them where none are present. The spell doesn't disguise, conceal, or add creatures.<br/><br/>The illusion includes audible, visual, tactile, and olfactory elements, so it can turn clear ground into difficult terrain (or vice versa) or otherwise impede movement through the area. Any piece of the illusory terrain (such as a rock or stick) that is removed from the spell's area disappears immediately.<br/><br/>Creatures with truesight can see through the illusion to the terrain's true form&nbsp;however, all other elements&nbsp;of the illusion remain, so while the creature is aware of&nbsp;the illusion's presence, the creature can still physically&nbsp;interact with the illusion.",
+        Classes: "Bard, Druid, Wizard, SRD"
     },
     {
         Name: "Plane Shift",
