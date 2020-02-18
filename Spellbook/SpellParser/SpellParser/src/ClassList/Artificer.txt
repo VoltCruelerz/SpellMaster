@@ -1,0 +1,86 @@
+Acid Splash
+Create Bonfire
+Dancing Lights
+Fire Bolt
+Frostbite
+Guidance
+LightsMage Hand
+Magic Stone
+Mending
+Message
+Poison Spray
+Prestidigitation
+Ray of Frostbite
+Resistance
+Shocking Grasp
+Spare the Dying
+Thorn Whip
+Thunderclap
+Absorb Elements
+Alarm
+Catapult
+Cure Wounds
+Detect Magic
+Disguise Self
+Expeditious Retreat
+Faerie FireFalse Life
+Feather Fall
+Grease
+Identify
+Jump
+Longstrider
+Purify Food and Drink
+Sanctuary
+Snare
+Aid
+Alter Self
+Arcane Lock
+Blur
+Continual Flame
+Darkvision
+Enhance Ability
+Enlarge/Reduce
+Heat Metal
+Invisibility
+Lesser Restoration
+Levitate
+Magic Mouth
+Magic Weapon
+Protection from Poison
+Pyrotechnics
+Rope Trick
+See Invisibility
+Skywrite
+Spider Climb
+Web
+Blink
+Catnap
+Create Food and Water
+Dispel Magic
+Elemental Weapon
+Flame Arrows
+Fly
+Glyph of Warding
+Haste
+Protection from Energy
+Revivify
+Tiny Servant
+Water Breathing
+Waterwalk
+Arcane Eye
+Elemental Bane
+Fabricate
+Freedom of Movement
+Secret Chest
+Faithful Hound
+Private Sanctum
+Resilient Sphere
+Stone Shape
+Stoneskin
+Animate Objects
+Arcane Hand
+Creation
+Greater Restoration
+Skill Empowerment
+Transmute Rock
+Wall of Stone

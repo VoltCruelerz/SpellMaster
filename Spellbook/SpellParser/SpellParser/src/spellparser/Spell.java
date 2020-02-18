@@ -1,5 +1,7 @@
 package spellparser;
 
+import java.util.ArrayList;
+
 public class Spell implements Comparable<Spell>{
     public String Name = "";
     public String OldName = "";
@@ -14,7 +16,7 @@ public class Spell implements Comparable<Spell>{
     public String Desc = "";
     public String Classes = "";
     
-    public Spell(boolean srdOnly, String name, int level, String school, boolean isRitual, String castTime, String range, SpellComponents components, String duration, String ability, String desc, String classes) {
+    public Spell(ArrayList<OverrideList> overrides, boolean srdOnly, String name, int level, String school, boolean isRitual, String castTime, String range, SpellComponents components, String duration, String ability, String desc, String classes) {
         Name = handleSRD(srdOnly, name);
         Level = level;
         School = school;
@@ -25,11 +27,11 @@ public class Spell implements Comparable<Spell>{
         Duration = duration;
         Ability = ability;
         Desc = desc;
-        Classes = classes.trim();
+        Classes = handleClassOverrides(overrides, classes.trim(), this.Name);
     }
     
     // Specify Old Name
-    public Spell(boolean srdOnly, String name, String oldName, int level, String school, boolean isRitual, String castTime, String range, SpellComponents components, String duration, String ability, String desc, String classes) {
+    public Spell(ArrayList<OverrideList> overrides, boolean srdOnly, String name, String oldName, int level, String school, boolean isRitual, String castTime, String range, SpellComponents components, String duration, String ability, String desc, String classes) {
         Name = name;
         OldName = handleSRD(srdOnly, oldName);
         Level = level;
@@ -41,7 +43,7 @@ public class Spell implements Comparable<Spell>{
         Duration = duration;
         Ability = ability;
         Desc = desc;
-        Classes = classes.trim();
+        Classes = handleClassOverrides(overrides, classes.trim(), name);
     }
     
     public String handleSRD(boolean srdOnly, String originalName) {
@@ -84,6 +86,16 @@ public class Spell implements Comparable<Spell>{
             }
         }
         return originalName;
+    }
+    
+    public String handleClassOverrides(ArrayList<OverrideList> overrides, String baseClasses, String spellName) {
+        for(int i = 0; i < overrides.size(); i++) {
+            OverrideList over = overrides.get(i);
+            if(over.hasSpell(spellName)) {
+                baseClasses = baseClasses + ", " + over.getName();
+            }
+        }
+        return baseClasses;
     }
     
     public void Dump() {

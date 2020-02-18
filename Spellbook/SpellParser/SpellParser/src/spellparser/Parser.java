@@ -87,7 +87,7 @@ public class Parser {
         }
     }
     
-    public Spell ParseRawSpellFile(boolean srdOnly, Object[] lines){
+    public Spell ParseRawSpellFile(boolean srdOnly, Object[] lines, ArrayList<OverrideList> overrides){
         // Tags for catching fields
         String titleStartTag = "<h1 class=\"classic-title\"><span>";
         String titleEndTag = "</span></h1>";
@@ -180,10 +180,10 @@ public class Parser {
         classes = classList.toString();
         classes = classes.replace("[", "");
         classes = classes.replace("]", "");
-        return new Spell(srdOnly, name, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
+        return new Spell(overrides, srdOnly, name, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
     }
     
-    public ArrayList<Spell> ParseHouseSpellFile(boolean srdOnly, Object[] lines) {
+    public ArrayList<Spell> ParseHouseSpellFile(boolean srdOnly, Object[] lines, ArrayList<OverrideList> overrides) {
         String schoolTag = "School: ";
         String castTag = "Casting Time: ";
         String rangeTag = "Range: ";
@@ -255,7 +255,7 @@ public class Parser {
                     desc = desc + "\n" + descLine;
                 }
                 
-                Spell spell = new Spell(srdOnly, name, oldName, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
+                Spell spell = new Spell(overrides, srdOnly, name, oldName, level, school, isRitual, castTime, range, components, duration, ability, desc, classes);
                 isRitual = false;
                 retVal.add(spell);
             } catch (Exception e){
@@ -266,6 +266,32 @@ public class Parser {
         }
         
         return retVal;
+    }
+    
+    public ArrayList<OverrideList> ParseOverrides() {
+        ArrayList<String> overrideClasses = new ArrayList<String>();
+        overrideClasses.add("Artificer");
+        overrideClasses.add("Artificer [TK]");
+        ArrayList<OverrideList> overrides = new ArrayList<OverrideList>();
+        
+        for (int i = 0; i < overrideClasses.size(); i++) {
+            String overrideClass = overrideClasses.get(i);
+            String[] spellNames = new String[0];
+            System.out.println("Reading " + overrideClass + " list");
+            Charset charset = Charset.forName("UTF-8");
+            try {
+                Path path = new File("D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\src\\ClassList\\" + overrideClass + ".txt").toPath();
+                Object[]objAr = Files.readAllLines(path, charset).toArray();
+                spellNames = Arrays.copyOf(objAr, objAr.length, String[].class);
+                System.out.println(overrideClass + " Spell Names: " + spellNames.length);
+            }
+            catch (Exception e) {
+                System.err.println("SRD Exception: " + e.toString());
+            }
+            
+            overrides.add(new OverrideList(overrideClass, spellNames));
+        }
+        return overrides;
     }
     
     public Parser(boolean srdOnly) {
@@ -282,6 +308,8 @@ public class Parser {
         catch (Exception e) {
             System.err.println("SRD Exception: " + e.toString());
         }
+        
+        ArrayList<OverrideList> overrides = ParseOverrides();
         
         ArrayList<Spell> spells = new ArrayList<Spell>();
         
@@ -304,7 +332,7 @@ public class Parser {
                     System.err.println("IO Error: " + e.toString());
                 }
                 
-                Spell spell = ParseRawSpellFile(srdOnly, lines);
+                Spell spell = ParseRawSpellFile(srdOnly, lines, overrides);
                 String json = gson.toJson(spell);
                 pw.print(json);
                 if(!rawFiles[rawFiles.length-1].equals(file)) {
@@ -346,7 +374,7 @@ public class Parser {
                         System.err.println("IO Error: " + e.toString());
                     }
                     
-                    ArrayList<Spell> houseSpells = ParseHouseSpellFile(srdOnly, lines);
+                    ArrayList<Spell> houseSpells = ParseHouseSpellFile(srdOnly, lines, overrides);
                     for(Spell houseSpell : houseSpells){
                         //houseSpell.Dump();
                         String json = gson.toJson(houseSpell);
@@ -428,7 +456,7 @@ public class Parser {
             mergedPW.flush();
         }
         catch(Exception e){
-            
+            System.err.println("Merge exception: " + e.toString());
         }
 
         System.out.println("Spells Ready for JS Count: " + spells.size());
@@ -478,7 +506,9 @@ public class Parser {
     }
 
     public static void main(String[] args) {
+        System.out.println("START SRD ===============");
         new Parser(true);
+        System.out.println("\nSTART HOUSE =============");
         new Parser(false);
     }
 }

@@ -1,0 +1,312 @@
+Acid Splash
+Alter Instrument
+Blade Ward
+Blacksteel
+Booming Blade
+Chill Touch
+Control Flames
+Copy
+Create Bonfire
+Dancing Lights
+Diction
+Fire Bolt
+Friends
+Frostbite
+Guidance
+Gust
+Hold Portal
+Jenga
+Light
+Lightning Lure
+Mage Hand
+Magic Stone
+Make Paper
+Mending
+Message
+Minor Illusion
+Mold Earth
+Pitfall
+Poison Spray
+Prestidigitation
+Ray of Frost
+Refrigerate
+Seal Hole
+Shape Water
+Shocking Grasp
+Sword Burst
+Sustain Fire
+Thunderclap
+True Strike
+Vanish
+Absorb Elements
+Assess
+Autopsy
+Alarm
+Borrow Fortune
+Bottomless Hats
+Burning Hands
+Camouflage
+Catapult
+Cause Fear
+Charm Person
+Chromatic Orb
+Color Spray
+Compass
+Comprehend Languages
+Death Candle
+Detect Harmony
+Detect Magic
+Disguise Self
+Dye
+Earth Tremor
+Ease Labor
+Elonia’s Glamor
+Expeditious Retreat
+False Life
+Feather Fall
+Fertility
+Find Familiar
+Fog Cloud
+Grease
+Groom
+Hide
+Identify
+Illusory Script
+Inaudibility
+Jayme’s Melodramatic Music
+Jump
+Kyburn’s Tailor
+Longstrider
+Mage Armor
+Pilpin’s Mapper
+Protection from Evil and Good
+Ray of Sickness
+Reassemble
+Repair
+Shadowblade
+Shield
+Silent Image
+Sleep
+Snapshot
+Snare
+Tasha’ Hideous Laughter
+Tenser’s Floating Disk
+Thunderwave
+Unseen Servant
+Adamantine Weapon
+Aganazzar’s Scorcher
+Alter Self
+Arcane Lock
+Augment Familiar
+Background Bustle
+Blindness/Deafness
+Cloud of Daggers
+Continual Flame
+Crown of Madness
+Darkness
+Darkvision
+Detect Thoughts
+Dig
+Dragon’s Breath
+Dust Devil
+Earthbind
+Echoes
+Enlarge/Reduce
+Flaming Sphere
+Gentle Repose
+Gust of Wind
+Hand of Ithiqua
+Hasted Mind
+Hold Person
+Invisibility
+Knock
+Levitate
+Locate Object
+Magic Mouth
+Magic Weapon
+Maximilian’s Earthen Grasp
+Melf’s Acid Arrow
+Mind Spike
+Misty Step
+Nystul’s Magic Aura
+Phantasmal Force
+Pyrotechnics
+Ray of Enfeeblement
+Rope Trick
+See Invisibility
+Shadow Blade
+Shatter
+Skywrite
+Snilloc’s Snowball Swarm
+Spider Climb
+Suggestion
+Warding Wind
+Web
+Alter Mass
+Animate Dead
+Bestow Curse
+Blink
+Clairvoyance
+Counterspell
+Create Food and Water
+Crumble
+Daylight
+Dispel Magic
+Elemental Weapon
+Fear
+Feign Death
+Flame Arrows
+Fly
+Gaseous Form
+Glyph of Warding
+Haste
+Hypnotic Pattern
+Leomund’s Tiny Hut
+Life Transference
+Lightning Arrow
+Magic Armor
+Magic Circle
+Major Image
+Meld Into Stone
+Melf’s Minute Meteors
+Nondetection
+Phantom Steed
+Protection from Energy
+Returning Object
+Secret Light
+Sending
+Sleet Storm
+Slow
+Spike Storm
+Springstone
+Tiny Servant
+Teleport Object
+Translocation Inhibitor
+Tongues
+Vampiric Touch
+War Mage’s Robes
+Water Breathing
+Water Walk
+Arcane Eye
+Banishment
+Compulsion
+Confusion
+Control Water
+Detect Spellcasting
+Dimension Door
+Divination
+Elemental Bane
+Evard’s Black Tentacles
+Fabricate
+Fire Shield
+Greater Invisibility
+Ice Storm
+Leomund’s Secret Chest
+Locate Creature
+Mordenkainen’s Private Sanctum
+Otiluke’s Resilient Sphere
+Shadow of Moil
+Sickening Radiance
+Stone Shape
+Animate Objects
+Antilife Shell
+Awaken
+Bigby’s Hand
+Contact other Planes
+Control Winds
+Creation
+Danse Macabre
+Dawn
+Destructive Wave
+Dispel Evil and Good
+Dream
+Enervation
+Far Step
+Geas
+Hold Monster
+Immolation
+Legend Lore
+Mislead
+Modify Memory
+Negative Energy Flood
+Otiluke's Resilient Sphere
+Passwall
+Planar Binding
+Raise Dead
+Rary’s Telepathic Bond
+Reconstruct
+Scrying
+Seeming
+Skill Empowerment
+Sterilize
+Telekinesis
+Teleportation Circle
+Wall of Force
+Wall of Stone
+Alter Landscape
+Arcane Gate
+Blade Barrier
+Bones of the Earth
+Contingency
+Create Homunculus
+Disintegrate
+Drawmij’s Instant Summons
+Find the Path
+Flesh to Stone
+Globe of Invulnerability
+Guards and Wards
+Investiture of Flame
+Investiture of Ice
+Investiture of Stone
+Investiture of Wind
+Magic Jar
+Mental Prison
+Primordial Ward
+Programmed Illusion
+Scatter
+Soul Cage
+Tenser’s Transformation
+True Seeing
+Wall of Ice
+Wind Walk
+Word of Recall
+Crown of Stars
+Delayed Blast Fireball
+Etherealness
+Forcecage
+Mordenkainen’s Magnificent Mansion
+Mordenkainen’s Sword
+Plane Shift
+Power Word Pain
+Project Image
+Regenerate
+Reverse Gravity
+Sequester
+Simulacrum
+Symbol
+Teleport
+Antimagic Field
+Antipathy/Sympathy
+Clone
+Control Weather
+Demiplane
+Mighty Fortress
+Mind Blanke
+Power Word Stun
+Telepathy
+Trap the Soul
+Astral Projection
+Foresight
+Gate
+Imprisonment
+Invulnerability
+Perimeter Shield
+Prismatic Wall
+Summon Riftblade
+Time Stop
+Transform Terrain
+True Polymorph
+Weird
+God Metal
+Kyburn’s Plane of Creation
+Unmake
