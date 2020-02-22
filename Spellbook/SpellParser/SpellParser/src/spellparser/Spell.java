@@ -98,6 +98,23 @@ public class Spell implements Comparable<Spell>{
         return baseClasses;
     }
     
+    public ArrayList<Spell> getReplicas() {
+        ArrayList<Spell> replicas = new ArrayList<>();
+        String[] classNames = Classes.split(",");
+        for(int i = 0; i < classNames.length; i++) {
+            String className = classNames[i].trim();
+            if (className.equals("SRD")) {
+                continue;
+            }
+            String newName = Name.trim() + " - " + className;
+            String newClassList = Classes.contains("SRD")
+                ? className + ", SRD"
+                : className;
+            replicas.add(new Spell(new ArrayList<OverrideList>(), false, newName, Level, School, IsRitual, CastTime, Range, Components, Duration, Ability, Desc, newClassList));
+        }
+        return replicas;
+    }
+    
     public void Dump() {
         System.out.println("[" + Level + "] " + Name);
         if (OldName.length() > 0) {

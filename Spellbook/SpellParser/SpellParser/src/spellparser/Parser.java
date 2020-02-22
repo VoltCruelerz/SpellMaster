@@ -461,6 +461,17 @@ public class Parser {
 
         System.out.println("Spells Ready for JS Count: " + spells.size());
         
+        // Replicate spells for class lists
+        int originalSpellCount = spells.size();
+        ArrayList<Spell> originalSpells = spells;
+        spells = new ArrayList<Spell>();
+        for(int i = 0; i < originalSpells.size(); i++) {
+            Spell spell = originalSpells.get(i);
+            ArrayList<Spell> replicas = spell.getReplicas();
+            spells.add(spell);
+            spells.addAll(replicas);
+        }
+        
         // Spellbook JS
         System.out.println("Printing Spellbook JS");
         try {
@@ -475,7 +486,7 @@ public class Parser {
             jsPW.println("var " + listTag + "SpellList = [");
             for(int i = 0; i < spells.size(); i++) {
                 Spell spell = spells.get(i);
-                if (srdOnly && spell.Classes.indexOf("SRD") == -1) {
+                if (srdOnly && !spell.Classes.contains("SRD")) {
                     continue;
                 }
                 String js = spell.PrintJS();
