@@ -294,7 +294,7 @@ public class Parser {
         return overrides;
     }
     
-    public Parser(boolean srdOnly) {
+    public Parser(boolean srdOnly, boolean makeReplicas, boolean foundryMode) {
         Gson gson = new Gson();
         String[] srdSpellNames = new String[0];
         System.out.println("Reading SRD list");
@@ -462,14 +462,16 @@ public class Parser {
         System.out.println("Spells Ready for JS Count: " + spells.size());
         
         // Replicate spells for class lists
-        int originalSpellCount = spells.size();
-        ArrayList<Spell> originalSpells = spells;
-        spells = new ArrayList<Spell>();
-        for(int i = 0; i < originalSpells.size(); i++) {
-            Spell spell = originalSpells.get(i);
-            ArrayList<Spell> replicas = spell.getReplicas();
-            spells.add(spell);
-            spells.addAll(replicas);
+        if (makeReplicas) {
+            int originalSpellCount = spells.size();
+            ArrayList<Spell> originalSpells = spells;
+            spells = new ArrayList<Spell>();
+            for(int i = 0; i < originalSpells.size(); i++) {
+                Spell spell = originalSpells.get(i);
+                ArrayList<Spell> replicas = spell.getReplicas();
+                spells.add(spell);
+                spells.addAll(replicas);
+            }
         }
         
         // Spellbook JS
@@ -482,14 +484,19 @@ public class Parser {
                 : "D:\\Documents\\Roll20 API\\Private Development\\SpellMaster\\Spellbook\\SpellParser\\SpellParser\\out\\SpellbookConst.js";
             PrintWriter jsPW = new PrintWriter(outputDestination, "UTF-8");
             String listTag = srdOnly ? "Srd" : "Custom";
-            jsPW.println("if (typeof MarkStart != 'undefined') {MarkStart('" + listTag + "SpellList');}");
-            jsPW.println("var " + listTag + "SpellList = [");
+            jsPW.println("/* eslint-disable operator-linebreak */");
+            if (foundryMode) {
+                jsPW.println("exports.CustomSpellList = [");
+            } else {
+                jsPW.println("if (typeof MarkStart != 'undefined') {MarkStart('" + listTag + "SpellList');}");
+                jsPW.println("var " + listTag + "SpellList = [");
+            }
             for(int i = 0; i < spells.size(); i++) {
                 Spell spell = spells.get(i);
                 if (srdOnly && !spell.Classes.contains("SRD")) {
                     continue;
                 }
-                String js = spell.PrintJS();
+                String js = spell.PrintJS(foundryMode);
                 //System.out.println("JS: " + js);
                 jsPW.print(js);
                 
@@ -507,7 +514,11 @@ public class Parser {
                 }
             }
             jsPW.println("];");
-            jsPW.println("if (typeof MarkStop != 'undefined') {MarkStop('" + listTag + "SpellList');}");
+            if (foundryMode) {
+                // jsPW.println();
+            } else {
+                jsPW.println("if (typeof MarkStop != 'undefined') {MarkStop('" + listTag + "SpellList');}");
+            }
             jsPW.flush();
             System.out.println("Printed " + actualPrinted.size() + " spells");
         }
@@ -517,9 +528,11 @@ public class Parser {
     }
 
     public static void main(String[] args) {
+        boolean makeReplicas = false;
+        boolean foundryMode = true;
         System.out.println("START SRD ===============");
-        new Parser(true);
+        new Parser(true, makeReplicas, foundryMode);
         System.out.println("\nSTART HOUSE =============");
-        new Parser(false);
+        new Parser(false, makeReplicas, foundryMode);
     }
 }

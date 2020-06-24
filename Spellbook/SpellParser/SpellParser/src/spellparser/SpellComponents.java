@@ -25,17 +25,19 @@ public class SpellComponents {
         }
     }
     
-    public String PrintJS() {
+    public String PrintJS(boolean foundryMode) {
         String tab = "    ";
-        String quote = "\"";
+        String quote = foundryMode ? "'" : "\"";
         String comma = ",";
         String newLine = "\n";
+        
+        String escapedDetails = foundryMode ? MDetails.replaceAll("'", "\\\\'") : MDetails;
         
         String str = "{" + newLine;
         str = str + tab + tab + tab + "V: " + V + comma + newLine;
         str = str + tab + tab + tab + "S: " + S + comma + newLine;
         str = str + tab + tab + tab + "M: " + M + comma + newLine;
-        str = str + tab + tab + tab + "MDetails: " + quote + MDetails + quote + newLine;
+        str = str + tab + tab + tab + "MDetails: " + quote + escapedDetails + quote + newLine;
         str = str + tab + tab + "}";
         
         return str;

@@ -130,9 +130,9 @@ public class Spell implements Comparable<Spell>{
         System.out.println("- Classes: " + Classes);
     }
     
-    public String PrintJS() {
+    public String PrintJS(boolean foundryMode) {
         String tab = "    ";
-        String quote = "\"";
+        String quote = foundryMode ? "'" : "\"";
         String comma = ",";
         String backslash = "\\";
         String newLine = "\n";
@@ -143,15 +143,15 @@ public class Spell implements Comparable<Spell>{
         String beautifiedDesc = escapedQuoteDesc.replace(newLine, "|" + quote + newLine + tab + tab + "+ " + quote);
         
         String str = tab + "{" + newLine;
-        str = str + tab + tab + "Name: " + quote + Name + quote + comma + newLine;
+        str = str + tab + tab + "Name: " + quote + (foundryMode ? Name.replaceAll("'", "\\\\'") : Name ) + quote + comma + newLine;
         str = str + tab + tab + "Level: " + Level + comma + newLine;
         str = str + tab + tab + "School: " + quote + School + quote + comma + newLine;
         str = str + tab + tab + "IsRitual: " + IsRitual + comma + newLine;
         str = str + tab + tab + "CastTime: " + quote + CastTime + quote + comma + newLine;
         str = str + tab + tab + "Range: " + quote + Range + quote + comma + newLine;
-        str = str + tab + tab + "Components: " + Components.PrintJS() + comma + newLine;
+        str = str + tab + tab + "Components: " + Components.PrintJS(foundryMode) + comma + newLine;
         str = str + tab + tab + "Duration: " + quote + Duration + quote + comma + newLine;
-        str = str + tab + tab + "Desc: " + quote + beautifiedDesc + quote + comma + newLine;
+        str = str + tab + tab + "Desc: " + quote + (foundryMode ? beautifiedDesc.replaceAll("'", "\'") : beautifiedDesc ) + quote + comma + newLine;
         str = str + tab + tab + "Classes: " + quote + Classes + quote + newLine;
         str = str + tab + "}";
         return str;
